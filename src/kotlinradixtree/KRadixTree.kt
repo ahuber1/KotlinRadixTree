@@ -8,7 +8,7 @@ class KRadixComparableTree<TIterable, TIterableData, TTerminator> :
              where TIterable : Iterable<TIterableData>, TIterableData : Comparable<TIterableData>, TTerminator : Any{
 
     override val root: KComparableNode<TIterableData, TTerminator>
-        get() = KComparableNode<TIterableData, TTerminator>(null)
+        get() = KComparableNode<TIterableData, TTerminator>(null, null)
 
 }
 
@@ -16,7 +16,7 @@ class KRadixHashableTree<TIterable, TIterableData, TTerminator> :
         KRadixTree<TIterable, TIterableData, TTerminator, Int, KHashableNode<TIterableData, TTerminator>>()
         where TIterable : Iterable<TIterableData>, TIterableData: Any, TTerminator : Any {
     override val root: KHashableNode<TIterableData, TTerminator>
-        get() = KHashableNode<TIterableData, TTerminator>(null)
+        get() = KHashableNode<TIterableData, TTerminator>(null, null)
 }
 
 abstract class KRadixTree<TIterable, TIterableData, TTerminator, TIdentifier, TNode>
