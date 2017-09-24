@@ -3,23 +3,23 @@ package kotlinradixtree
 typealias KRadixComparableStringTree<T> = KRadixComparableTree<Iterable<Char>, Char, T>
 typealias KRadixHashableStringTree<T> = KRadixHashableTree<Iterable<Char>, Char, T>
 
-class KRadixComparableTree<TIterable, TIterableData, TTerminator> :
+class KRadixComparableTree<in TIterable, TIterableData, TTerminator> :
         KRadixTree<TIterable, TIterableData, TTerminator, TIterableData, KComparableNode<TIterableData, TTerminator>>()
              where TIterable : Iterable<TIterableData>, TIterableData : Comparable<TIterableData>, TTerminator : Any{
 
     override val root: KComparableNode<TIterableData, TTerminator>
-        get() = KComparableNode<TIterableData, TTerminator>(null, null)
+        get() = KComparableNode(null, null)
 
 }
 
-class KRadixHashableTree<TIterable, TIterableData, TTerminator> :
+class KRadixHashableTree<in TIterable, TIterableData, TTerminator> :
         KRadixTree<TIterable, TIterableData, TTerminator, Int, KHashableNode<TIterableData, TTerminator>>()
         where TIterable : Iterable<TIterableData>, TIterableData: Any, TTerminator : Any {
     override val root: KHashableNode<TIterableData, TTerminator>
-        get() = KHashableNode<TIterableData, TTerminator>(null, null)
+        get() = KHashableNode(null, null)
 }
 
-abstract class KRadixTree<TIterable, TIterableData, TTerminator, TIdentifier, TNode>
+abstract class KRadixTree<in TIterable, TIterableData, TTerminator, TIdentifier, TNode>
         where TIterable : Iterable<TIterableData>,
               TTerminator : Any,
               TIdentifier : Comparable<TIdentifier>,
@@ -32,17 +32,17 @@ abstract class KRadixTree<TIterable, TIterableData, TTerminator, TIdentifier, TN
     fun get(item: TIterable) : TTerminator? = get(item.iterator(), root)
 
     fun get(iterator: Iterator<TIterableData>, currentNode: TNode): TTerminator? {
-        if (iterator.hasNext()) {
+        return if (iterator.hasNext()) {
             val data = iterator.next()
             val nextNode = currentNode.get(data)
 
             if (nextNode == null)
-                return null
+                null
             else
-                return get(iterator, nextNode)
+                get(iterator, nextNode)
         }
         else {
-            return currentNode.terminator // this will be null if nothing was added
+            currentNode.terminator // this will be null if nothing was added
         }
     }
 
