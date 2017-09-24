@@ -14,11 +14,11 @@ class KHashableNode<TData : Any, TTerminator : Any>(data: TData?, parent: KHasha
 class KComparableNode<TData : Comparable<TData>, TTerminator : Any>(data: TData?, parent: KComparableNode<TData, TTerminator>?) :
         KRadixTreeNode<TData, TData, TTerminator, KComparableNode<TData, TTerminator>>(data, parent) {
 
-    override fun makeChildNode(data: TData): KComparableNode<TData, TTerminator> = KComparableNode<TData, TTerminator>(data, this)
+    override fun makeChildNode(data: TData): KComparableNode<TData, TTerminator> = KComparableNode(data, this)
     override fun dataToId(data: TData) = data
 }
 
-abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal val data: TData?, internal val parent: TNode?)
+abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal val data: TData?, private val parent: TNode?)
         where TIdentifier : Comparable<TIdentifier>,
               TTerminator : Any,
               TNode : KRadixTreeNode<TData, TIdentifier, TTerminator, TNode> {
@@ -35,8 +35,8 @@ abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal v
     internal fun add(data: TData) {
         val index = indexOf(data)
 
-        when {
-            index is IndexDataWasFound -> throw UnsupportedOperationException("You cannot add an item that has already been added")
+        when (index) {
+            is IndexDataWasFound -> throw UnsupportedOperationException("You cannot add an item that has already been added")
             else -> children.add(index.index, makeChildNode(data))
         }
     }
@@ -46,19 +46,19 @@ abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal v
     internal fun get(data: TData) : TNode? {
         val index = indexOf(data)
 
-        if (index.isInNode())
-            return children[index.index]
+        return if (index.isInNode())
+            children[index.index]
         else
-            return null
+            null
     }
 
     internal fun indexOf(data: TData) : KRadixTreeNodeIndex = search(dataToId(data))
 
     private fun search(id: TIdentifier) : KRadixTreeNodeIndex {
-        if (children.isEmpty())
-            return 0.indexDataShouldBeAt(true)
+        return if (children.isEmpty())
+            0.indexDataShouldBeAt(true)
         else
-            return search(id, 0, children.lastIndex / 2, children.lastIndex)
+            search(id, 0, children.lastIndex / 2, children.lastIndex)
     }
 
     private fun search(id: TIdentifier, startIndex: Int, middleIndex: Int, endIndex: Int) : KRadixTreeNodeIndex {
@@ -105,8 +105,8 @@ abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal v
             if (children.isEmpty() && this.data != null && this.parent != null) {
                 index = parent.search(dataToId(this.data))
 
-                when {
-                    index is IndexDataWasFound -> parent.children.removeAt(index.index)
+                when (index) {
+                    is IndexDataWasFound -> parent.children.removeAt(index.index)
                     else -> throw IllegalStateException("The parent should have a reference to this node")
                 }
             }
