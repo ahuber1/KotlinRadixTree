@@ -1,77 +1,148 @@
 package kotlinradixtree
 
-import org.testng.annotations.Test
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
+import com.sun.org.apache.xpath.internal.operations.Bool
+import sun.plugin.dom.exception.InvalidStateException
 
-class KHashableNode<TData : Any, TTerminator : Any>(data: TData?, parent: KHashableNode<TData, TTerminator>?) :
-        KRadixTreeNode<TData, Int, TTerminator, KHashableNode<TData, TTerminator>>(data, parent) {
+internal class KRadixTreeNode {
 
-    override fun dataToId(data: TData): Int = data.hashCode()
-    override fun makeChildNode(data: TData): KHashableNode<TData, TTerminator> = KHashableNode(data, this)
-}
+    private val string: String?
+    private val parent: KRadixTreeNode?
+    private val children = ArrayList<KRadixTreeNode>()
 
-class KComparableNode<TData : Comparable<TData>, TTerminator : Any>(data: TData?, parent: KComparableNode<TData, TTerminator>?) :
-        KRadixTreeNode<TData, TData, TTerminator, KComparableNode<TData, TTerminator>>(data, parent) {
+    internal constructor() {
+        parent = null
+        string = null
+    }
 
-    override fun makeChildNode(data: TData): KComparableNode<TData, TTerminator> = KComparableNode(data, this)
-    override fun dataToId(data: TData) = data
-}
+    internal constructor(string: String, parent: KRadixTreeNode) {
+        this.string = string
+        this.parent = parent
+    }
 
-abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal val data: TData?, private val parent: TNode?)
-        where TIdentifier : Comparable<TIdentifier>,
-              TTerminator : Any,
-              TNode : KRadixTreeNode<TData, TIdentifier, TTerminator, TNode> {
+    internal fun add(string: String) {
+        if (parent == null && string == null)
+            addInternal(string)
+        else
+            throw UnsupportedOperationException("You cannot call add(String) on anything other than the root node")
+    }
 
-    private val children = ArrayList<TNode>()
+    private fun addInternal(string: String) {
 
-    protected abstract fun dataToId(data: TData) : TIdentifier
-    protected abstract fun makeChildNode(data: TData) : TNode
+        if (string.isEmpty())
+            return
+        // If any of the children contain string
+        if (children.any { it.string!! == string } )
+            return
 
-    private var lazyId = lazy { dataToId(data!!) }
-    internal val id : TIdentifier get() = lazyId.value
-    internal var terminator: TTerminator? = null
+        var iterable: Iterable<Int>? = null
+        var longer = true
 
-    internal fun add(data: TData) {
-        val index = indexOf(data)
+        val matchIndiciesLonger = children.indiciesThatMatchPredicate { it.string!!.startsWith(string) }
 
-        when (index) {
-            is IndexDataWasFound -> throw UnsupportedOperationException("You cannot add an item that has already been added")
-            else -> children.add(index.index, makeChildNode(data))
+        if (matchIndiciesLonger.any())
+            iterable = matchIndiciesLonger
+        else {
+            val matchIndiciesShorter = children.indiciesThatMatchPredicate { string.startsWith(it.string!!) }
+
+            if (matchIndiciesShorter.any())
+                iterable = matchIndiciesShorter
+
+            longer = false
+        }
+
+        if (iterable != null) {
+            val iterator = iterable.iterator()
+            val index = iterator.next()
+
+            when {
+                iterator.hasNext() -> throw InvalidStateException("foo")
+                longer -> addLongerString(string, index)
+                else -> addShorterString(string, index)
+            }
+        }
+        else {
+            children.add(searchAmongChildren(string).index, KRadixTreeNode(string, this))
         }
     }
 
-    internal fun contains(data: TData) : Boolean = indexOf(data).isInNode()
-
-    internal fun get(data: TData) : TNode? {
-        val index = indexOf(data)
-
-        return if (index.isInNode())
-            children[index.index]
-        else
-            null
+    private fun addLongerString(longerString: String, indexOfShorterString: Int) {
+        val shorterString = children[indexOfShorterString].string!!
+        val comparisonResult = shorterString kRadixTreeStringCompare longerString
+        children[indexOfShorterString].addInternal(comparisonResult.prefixStringsShare)
     }
 
-    internal fun indexOf(data: TData) : KRadixTreeNodeIndex = search(dataToId(data))
+    private fun addShorterString(shorterString: String, indexOfLongerString: Int) {
+        val longerString = children[indexOfLongerString].string!!
+        val comparisonResult = shorterString kRadixTreeStringCompare longerString
 
-    private fun search(id: TIdentifier) : KRadixTreeNodeIndex {
+        children.removeAt(indexOfLongerString)
+
+        val index = searchAmongChildren(shorterString) // This will always be an IndexDataShouldBeAt
+        val newNode = KRadixTreeNode(comparisonResult.prefixStringsShare, this)
+        children.add(index.index, newNode)
+        newNode.addInternal(comparisonResult.suffixWhereStringsDiffer)
+    }
+
+    internal fun remove(string: String) : Boolean {
+        if (parent == null && string == null)
+            return removeInternal(string)
+        else
+            throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
+    }
+
+    private fun removeInternal(string: String) : Boolean {
+        if (string.isEmpty())
+            return true
+
+        var iterable: Iterable<Int>? = null
+        var longer = true
+
+        val matchIndiciesLonger = children.indiciesThatMatchPredicate { it.string!!.startsWith(string) }
+
+        if (matchIndiciesLonger.any())
+            iterable = matchIndiciesLonger
+        else {
+            val matchIndiciesShorter = children.indiciesThatMatchPredicate { string.startsWith(it.string!!) }
+
+            if (matchIndiciesShorter.any())
+                iterable = matchIndiciesShorter
+
+            longer = false
+        }
+
+        if (iterable != null) {
+            val iterator = iterable.iterator()
+            val index = iterator.next()
+
+            when {
+                iterator.hasNext() -> throw InvalidStateException("foo")
+                longer -> removeLongerString(string, index)
+                else -> removeShorterString(string, index)
+            }
+        }
+        else {
+            children.add(searchAmongChildren(string).index, KRadixTreeNode(string, this))
+        }
+    }
+
+    private fun searchAmongChildren(string: String) : KRadixTreeNodeIndex {
         return if (children.isEmpty())
-            0.indexDataShouldBeAt(true)
+            IndexDataShouldBeAt(0)
         else
-            search(id, 0, children.lastIndex / 2, children.lastIndex)
+            search(string, 0, children.lastIndex / 2, children.lastIndex)
     }
 
-    private fun search(id: TIdentifier, startIndex: Int, middleIndex: Int, endIndex: Int) : KRadixTreeNodeIndex {
-        val middleId = dataToId(children[middleIndex].data!!)
+    private fun search(string: String, startIndex: Int, middleIndex: Int, endIndex: Int) : KRadixTreeNodeIndex {
+        val middleString = children[middleIndex].string!!
 
         return when {
-            id == middleId -> IndexDataWasFound(middleIndex)
-            endIndex - startIndex == 0 -> middleIndex.indexDataShouldBeAt(id < middleId)
+            string == middleString -> IndexDataWasFound(middleIndex)
+            endIndex - startIndex == 0 -> middleIndex.indexDataShouldBeAt(string < middleString)
             else -> {
                 val newStartIndex: Int
                 val newEndIndex: Int
 
-                if (id < middleId) {
+                if (string < middleString) {
                     newStartIndex = startIndex
                     newEndIndex = middleIndex
                 }
@@ -82,81 +153,8 @@ abstract class KRadixTreeNode<TData, TIdentifier, TTerminator, TNode>(internal v
 
                 val newMiddleIndex = ((newEndIndex - newStartIndex) / 2) + newStartIndex
 
-                return search(id, newStartIndex, newMiddleIndex, newEndIndex)
+                return search(string, newStartIndex, newMiddleIndex, newEndIndex)
             }
         }
-    }
-
-    fun remove(data: TData) : Boolean {
-        var index = indexOf(data)
-
-        if (!index.isInNode())
-            throw UnsupportedOperationException("You cannot remove an item that does not exist")
-
-        val node = children[index.index]
-        node.terminator = null // remove the data at this location
-
-        if (node.children.any())
-            return false
-        else {
-            children.removeAt(index.index)
-
-            // If this node no longer has any children, "tell" the parent to remove this node
-            if (children.isEmpty() && this.data != null && this.parent != null) {
-                index = parent.search(dataToId(this.data))
-
-                when (index) {
-                    is IndexDataWasFound -> parent.children.removeAt(index.index)
-                    else -> throw IllegalStateException("The parent should have a reference to this node")
-                }
-            }
-
-            return true
-        }
-    }
-}
-
-@Test fun `Test Nodes`() {
-    val characters = 'A'..'z'
-    val comparableNode = KComparableNode<Char, Char>(null, null)
-    val hashableNode = KHashableNode<Char, Char>(null, null)
-
-    // First, add all the characters in the both nodes, assert that each contains each character, and assert that
-    // the property data has been set properly
-    for (character in characters) {
-        comparableNode.add(character)
-        println("added $character to comparable node")
-        hashableNode.add(character)
-        println("added $character to hashable node")
-
-        assertTrue(comparableNode.contains(character))
-        println("$character is in comparable node")
-        assertTrue(hashableNode.contains(character))
-        println("$character is in comparable node")
-
-        assert(comparableNode.get(character) != null && comparableNode.get(character)?.data == character)
-        println("\tcomparable node contains $character as data")
-        assert(hashableNode.get(character) != null && comparableNode.get(character)?.data == character)
-        println("\thashable node contains $character as data")
-    }
-
-    for (character in characters) {
-        // Assert that the items exist
-        assertTrue(comparableNode.contains(character))
-        println("$character is in comparable node")
-        assertTrue(hashableNode.contains(character))
-        println("$character is in comparable node")
-
-        // Assert that removals are successful
-        assertTrue(comparableNode.remove(character))
-        println("$character is removed from comparable node")
-        assertTrue(hashableNode.remove(character))
-        println("$character is removed from comparable node")
-
-        // Assert the items have been removed
-        assertFalse(comparableNode.contains(character))
-        println("$character is NOT in comparable node")
-        assertFalse(hashableNode.contains(character))
-        println("$character is NOT in comparable node")
     }
 }
