@@ -6,10 +6,10 @@ import kotlin.test.assertEquals
 internal data class KRadixTreeStringComparisonResult(val prefixStringsShare: String,
                                                         val suffixWhereStringsDiffer: String)
 
-internal infix fun String.kRadixTreeStringCompare(string: String) : KRadixTreeStringComparisonResult {
-    val charBuffLen = maxOf(this.length, string.length)
-    val buffer1 = this.toCharArrayWithFill(charBuffLen).map { it.toInt() }
-    val buffer2 = string.toCharArrayWithFill(charBuffLen).map { it.toInt() }
+internal fun compareStringsWithSharedPrefix(string1: String, string2: String) : KRadixTreeStringComparisonResult {
+    val charBuffLen = maxOf(string1.length, string2.length)
+    val buffer1 = string1.toCharArrayWithFill(charBuffLen).map { it.toInt() }
+    val buffer2 = string2.toCharArrayWithFill(charBuffLen).map { it.toInt() }
     val sharedBuffer = Array(buffer1.count(), { 0 } )
     val differBuffer = sharedBuffer.copyOf()
 
@@ -31,7 +31,7 @@ internal infix fun String.kRadixTreeStringCompare(string: String) : KRadixTreeSt
     val string2 = "tables"
     val expectedSimilarPrefix = "table"
     val expectedDissimilarSuffix = "s"
-    val result = string1 kRadixTreeStringCompare  string2
+    val result = compareStringsWithSharedPrefix(string1, string2)
 
     assertEquals(expectedSimilarPrefix, result.prefixStringsShare)
     assertEquals(expectedDissimilarSuffix, result.suffixWhereStringsDiffer)

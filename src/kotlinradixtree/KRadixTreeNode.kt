@@ -1,13 +1,17 @@
 package kotlinradixtree
 
-import com.sun.org.apache.xpath.internal.operations.Bool
+import org.testng.annotations.Test
 import sun.plugin.dom.exception.InvalidStateException
+import java.lang.StringBuilder
+import java.util.*
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
-internal class KRadixTreeNode {
+internal open class KRadixTreeNode {
 
-    private val string: String?
-    private val parent: KRadixTreeNode?
-    private val children = ArrayList<KRadixTreeNode>()
+    protected val string: String?
+    protected val parent: KRadixTreeNode?
+    protected val children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
         parent = null
@@ -20,71 +24,76 @@ internal class KRadixTreeNode {
     }
 
     internal fun add(string: String) {
-        if (parent == null && string == null)
+        if (string.isEmpty())
+            throw IllegalArgumentException("One cannot add an empty string into a radix tree") // TODO Maybe allow this functionality in the future?
+        else if (parent == null)
             addInternal(string)
         else
-            throw UnsupportedOperationException("You cannot call add(String) on anything other than the root node")
+            throw UnsupportedOperationException("One cannot call add(String) on anything other than the root node")
     }
 
     private fun addInternal(string: String) {
-
         if (string.isEmpty())
             return
-        // If any of the children contain string
-        if (children.any { it.string!! == string } )
-            return
 
-        var iterable: Iterable<Int>? = null
-        var longer = true
+        val index = indexOfLongestStringInChildren(string)
 
-        val matchIndiciesLonger = children.indiciesThatMatchPredicate { it.string!!.startsWith(string) }
-
-        if (matchIndiciesLonger.any())
-            iterable = matchIndiciesLonger
-        else {
-            val matchIndiciesShorter = children.indiciesThatMatchPredicate { string.startsWith(it.string!!) }
-
-            if (matchIndiciesShorter.any())
-                iterable = matchIndiciesShorter
-
-            longer = false
-        }
-
-        if (iterable != null) {
-            val iterator = iterable.iterator()
-            val index = iterator.next()
-
-            when {
-                iterator.hasNext() -> throw InvalidStateException("foo")
-                longer -> addLongerString(string, index)
-                else -> addShorterString(string, index)
-            }
+        if (index == null) {
+            val indexDataShouldBeAt = searchAmongChildren(string) as IndexDataShouldBeAt
+            children.add(indexDataShouldBeAt.index, KRadixTreeNode(string, this))
         }
         else {
-            children.add(searchAmongChildren(string).index, KRadixTreeNode(string, this))
+            val match = children[index]
+            var result1 = compareStringsWithSharedPrefix(match.string!!, string)
+            var result2 = compareStringsWithSharedPrefix(string, match.string!!)
+            children.removeAt(index)
+            TODO()
         }
     }
 
-    private fun addLongerString(longerString: String, indexOfShorterString: Int) {
-        val shorterString = children[indexOfShorterString].string!!
-        val comparisonResult = shorterString kRadixTreeStringCompare longerString
-        children[indexOfShorterString].addInternal(comparisonResult.prefixStringsShare)
+    internal operator fun contains(string: String): Boolean {
+        if (string.isEmpty())
+            return false
+
+        return containsInternal(string, this)
     }
 
-    private fun addShorterString(shorterString: String, indexOfLongerString: Int) {
-        val longerString = children[indexOfLongerString].string!!
-        val comparisonResult = shorterString kRadixTreeStringCompare longerString
+    private fun containsInternal(string: String, node: KRadixTreeNode) : Boolean {
+        if (string.isEmpty())
+            return true
 
-        children.removeAt(indexOfLongerString)
+        val index = indexOfLongestStringInChildren(string) ?: return false // not found
+        val result = compareStringsWithSharedPrefix(children[index].string!!, string)
+        return containsInternal(result.suffixWhereStringsDiffer, children[index])
+    }
 
-        val index = searchAmongChildren(shorterString) // This will always be an IndexDataShouldBeAt
-        val newNode = KRadixTreeNode(comparisonResult.prefixStringsShare, this)
-        children.add(index.index, newNode)
-        newNode.addInternal(comparisonResult.suffixWhereStringsDiffer)
+    internal fun indexOfLongestStringInChildren(string: String) : Int? {
+        if (string.isEmpty())
+            throw IllegalArgumentException("string cannot be empty")
+
+        var index = 0
+        val matches = LinkedList<KRadixTreeNode?>()
+        val builder = StringBuilder()
+
+        do {
+            builder.append(string[index++])
+            matches.addLast(children.find { it.string!!.startsWith(builder) })
+        }  while(builder.length < string.length && matches.last != null)
+
+        val last = matches.findLast { it != null }
+
+        if (last != null)
+            return children.indexOf(last)
+        else
+            return null
     }
 
     internal fun remove(string: String) : Boolean {
-        if (parent == null && string == null)
+        if (string.isEmpty()) {
+            throw IllegalArgumentException("An empty string cannot be added into a radix tree. " +
+                    "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
+        }
+        else if (parent == null)
             return removeInternal(string)
         else
             throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
@@ -94,34 +103,30 @@ internal class KRadixTreeNode {
         if (string.isEmpty())
             return true
 
-        var iterable: Iterable<Int>? = null
-        var longer = true
+        val index = indexOfLongestStringInChildren(string) ?: return false // no match found
+        val otherNode = children[index]
+        val result = compareStringsWithSharedPrefix(otherNode.string!!, string)
+        val returnValue = removeInternal(result.suffixWhereStringsDiffer)
+        children.removeAt(index)
+        moveChildrenUp(otherNode)
 
-        val matchIndiciesLonger = children.indiciesThatMatchPredicate { it.string!!.startsWith(string) }
+        if (returnValue && children.isEmpty())
+            parent?.children?.remove(this)
 
-        if (matchIndiciesLonger.any())
-            iterable = matchIndiciesLonger
+        return returnValue
+    }
+
+    private fun moveChildrenUp(node: KRadixTreeNode) {
+        moveChildrenUp(node, "")
+    }
+
+    private fun moveChildrenUp(node: KRadixTreeNode, string: String) {
+        if (node.children.isEmpty())
+            add(string)
         else {
-            val matchIndiciesShorter = children.indiciesThatMatchPredicate { string.startsWith(it.string!!) }
-
-            if (matchIndiciesShorter.any())
-                iterable = matchIndiciesShorter
-
-            longer = false
-        }
-
-        if (iterable != null) {
-            val iterator = iterable.iterator()
-            val index = iterator.next()
-
-            when {
-                iterator.hasNext() -> throw InvalidStateException("foo")
-                longer -> removeLongerString(string, index)
-                else -> removeShorterString(string, index)
+            for (child in node.children) {
+                moveChildrenUp(child, string + child.string!!)
             }
-        }
-        else {
-            children.add(searchAmongChildren(string).index, KRadixTreeNode(string, this))
         }
     }
 
@@ -154,6 +159,32 @@ internal class KRadixTreeNode {
                 val newMiddleIndex = ((newEndIndex - newStartIndex) / 2) + newStartIndex
 
                 return search(string, newStartIndex, newMiddleIndex, newEndIndex)
+            }
+        }
+    }
+
+    @Test
+    internal fun testInsertion() {
+        val strings = arrayOf( "apple", "apply", "application" )
+        val root = KRadixTreeNode()
+        val stringsProcessedSoFar = ArrayList<String>()
+
+        for (string in strings) {
+            root.add(string)
+            stringsProcessedSoFar.add(string)
+
+            for (s in stringsProcessedSoFar) {
+                assertTrue(s in root)
+            }
+        }
+
+        for (string in strings) {
+            root.remove(string)
+            stringsProcessedSoFar.remove(string)
+            assertFalse(string in root)
+
+            for (s in stringsProcessedSoFar) {
+                assertTrue(s in root)
             }
         }
     }
