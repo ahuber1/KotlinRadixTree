@@ -10,7 +10,7 @@ import kotlin.test.assertTrue
 internal open class KRadixTreeNode {
 
     protected val string: String?
-    protected val parent: KRadixTreeNode?
+    protected var parent: KRadixTreeNode?
     protected val children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
@@ -44,10 +44,42 @@ internal open class KRadixTreeNode {
         }
         else {
             val match = children[index]
-            var result1 = compareStringsWithSharedPrefix(match.string!!, string)
-            var result2 = compareStringsWithSharedPrefix(string, match.string!!)
-            children.removeAt(index)
-            TODO()
+
+            if (match.string!! == string)
+                return // already added
+
+            val result1 = compareStringsWithSharedPrefix(string, match.string!!)
+            val result2 = compareStringsWithSharedPrefix(match.string, string)
+            val originalNode = children[index]
+
+            // The match is longer than the string
+            if (result1.suffixWhereStringsDiffer.isEmpty() && result2.suffixWhereStringsDiffer.isNotEmpty()) {
+                children.removeAt(index)
+                val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
+                val newNode = KRadixTreeNode(result1.prefixStringsShare, this)
+                children.add(indexToInsert.index, newNode)
+                newNode.addInternal(result2.suffixWhereStringsDiffer)
+                for (child in originalNode.children) {
+                    child.parent = newNode
+                    newNode.children[0].children.add(child)
+                }
+            }
+            // string is longer than the match
+            else if (result1.suffixWhereStringsDiffer.isNotEmpty() && result2.suffixWhereStringsDiffer.isEmpty()) {
+                originalNode.addInternal(result1.suffixWhereStringsDiffer)
+            }
+            else {
+                children.removeAt(index)
+                val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
+                val newNode = KRadixTreeNode(result1.prefixStringsShare, this)
+                children.add(indexToInsert.index, newNode)
+                newNode.addInternal(result1.suffixWhereStringsDiffer)
+                for (child in originalNode.children) {
+                    child.parent = newNode
+                    newNode.children[0].children.add(child)
+                }
+                newNode.addInternal(result2.suffixWhereStringsDiffer)
+            }
         }
     }
 
@@ -62,9 +94,9 @@ internal open class KRadixTreeNode {
         if (string.isEmpty())
             return true
 
-        val index = indexOfLongestStringInChildren(string) ?: return false // not found
-        val result = compareStringsWithSharedPrefix(children[index].string!!, string)
-        return containsInternal(result.suffixWhereStringsDiffer, children[index])
+        val index = node.indexOfLongestStringInChildren(string) ?: return false // not found
+        val result = compareStringsWithSharedPrefix(node.children[index].string!!, string)
+        return containsInternal(result.suffixWhereStringsDiffer, node.children[index])
     }
 
     internal fun indexOfLongestStringInChildren(string: String) : Int? {
@@ -165,7 +197,7 @@ internal open class KRadixTreeNode {
 
     @Test
     internal fun testInsertion() {
-        val strings = arrayOf( "apple", "apply", "application" )
+        val strings = arrayOf( "application", "apply", "apple" )
         val root = KRadixTreeNode()
         val stringsProcessedSoFar = ArrayList<String>()
 
