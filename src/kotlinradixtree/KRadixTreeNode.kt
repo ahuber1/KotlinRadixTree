@@ -7,7 +7,7 @@ import java.util.*
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-internal open class KRadixTreeNode {
+internal class KRadixTreeNode {
 
     protected val string: String?
     protected var parent: KRadixTreeNode?
@@ -51,9 +51,11 @@ internal open class KRadixTreeNode {
             val result1 = compareStringsWithSharedPrefix(string, match.string!!)
             val result2 = compareStringsWithSharedPrefix(match.string, string)
             val originalNode = children[index]
+            val neededPrefixExists = originalNode.string!! == result1.prefixStringsShare
+            val matchIsLongerThanString = result1.suffixWhereStringsDiffer.isEmpty() && result2.suffixWhereStringsDiffer.isNotEmpty()
+            val stringIsLongerThanMatch = result1.suffixWhereStringsDiffer.isNotEmpty() && result2.suffixWhereStringsDiffer.isEmpty()
 
-            // The match is longer than the string
-            if (result1.suffixWhereStringsDiffer.isEmpty() && result2.suffixWhereStringsDiffer.isNotEmpty()) {
+            if (matchIsLongerThanString && !neededPrefixExists) {
                 children.removeAt(index)
                 val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
                 val newNode = KRadixTreeNode(result1.prefixStringsShare, this)
@@ -64,9 +66,11 @@ internal open class KRadixTreeNode {
                     newNode.children[0].children.add(child)
                 }
             }
-            // string is longer than the match
-            else if (result1.suffixWhereStringsDiffer.isNotEmpty() && result2.suffixWhereStringsDiffer.isEmpty()) {
+            else if (stringIsLongerThanMatch) {
                 originalNode.addInternal(result1.suffixWhereStringsDiffer)
+            }
+            else if (neededPrefixExists) {
+                originalNode.addInternal(result2.suffixWhereStringsDiffer)
             }
             else {
                 children.removeAt(index)
@@ -126,24 +130,25 @@ internal open class KRadixTreeNode {
                     "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
         }
         else if (parent == null)
-            return removeInternal(string)
+            return removeInternal(string, this)
         else
             throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
     }
 
-    private fun removeInternal(string: String) : Boolean {
+    private fun removeInternal(string: String, node: KRadixTreeNode) : Boolean {
         if (string.isEmpty())
             return true
 
-        val index = indexOfLongestStringInChildren(string) ?: return false // no match found
-        val otherNode = children[index]
+        val index = node.indexOfLongestStringInChildren(string) ?: return false // no match found
+        val otherNode = node.children[index]
         val result = compareStringsWithSharedPrefix(otherNode.string!!, string)
-        val returnValue = removeInternal(result.suffixWhereStringsDiffer)
-        children.removeAt(index)
-        moveChildrenUp(otherNode)
+        val returnValue = removeInternal(result.suffixWhereStringsDiffer, otherNode)
 
-        if (returnValue && children.isEmpty())
-            parent?.children?.remove(this)
+        if (otherNode.children.isEmpty()) {
+            node.children.removeAt(index)
+            moveChildrenUp(otherNode)
+        }
+
 
         return returnValue
     }
@@ -154,7 +159,7 @@ internal open class KRadixTreeNode {
 
     private fun moveChildrenUp(node: KRadixTreeNode, string: String) {
         if (node.children.isEmpty())
-            add(string)
+            addInternal(string)
         else {
             for (child in node.children) {
                 moveChildrenUp(child, string + child.string!!)
@@ -193,6 +198,14 @@ internal open class KRadixTreeNode {
                 return search(string, newStartIndex, newMiddleIndex, newEndIndex)
             }
         }
+    }
+
+    override fun toString(): String {
+        val parentString = "\"${parent?.string ?: ""}\""
+        val childrenString = "[ ${children.map { it.string }.joinToString(", ")} ]"
+        val string = "\"${this.string ?: ""}\""
+
+        return "KRadixTreeNode(string = $string, parent = $parentString, children = $childrenString"
     }
 
     @Test
