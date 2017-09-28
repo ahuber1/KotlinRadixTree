@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 
 internal class KRadixTreeNode {
 
-    protected val string: String?
+    protected var string: String?
     protected var parent: KRadixTreeNode?
     protected val children = ArrayList<KRadixTreeNode>()
 
@@ -49,7 +49,7 @@ internal class KRadixTreeNode {
                 return // already added
 
             val result1 = compareStringsWithSharedPrefix(string, match.string!!)
-            val result2 = compareStringsWithSharedPrefix(match.string, string)
+            val result2 = compareStringsWithSharedPrefix(match.string!!, string)
             val originalNode = children[index]
             val neededPrefixExists = originalNode.string!! == result1.prefixStringsShare
             val matchIsLongerThanString = result1.suffixWhereStringsDiffer.isEmpty() && result2.suffixWhereStringsDiffer.isNotEmpty()
@@ -100,7 +100,11 @@ internal class KRadixTreeNode {
 
         val index = node.indexOfLongestStringInChildren(string) ?: return false // not found
         val result = compareStringsWithSharedPrefix(node.children[index].string!!, string)
-        return containsInternal(result.suffixWhereStringsDiffer, node.children[index])
+
+        return if (node.children[index].string!! == result.prefixStringsShare)
+            containsInternal(result.suffixWhereStringsDiffer, node.children[index])
+        else
+            false
     }
 
     internal fun indexOfLongestStringInChildren(string: String) : Int? {
@@ -142,15 +146,34 @@ internal class KRadixTreeNode {
         val index = node.indexOfLongestStringInChildren(string) ?: return false // no match found
         val otherNode = node.children[index]
         val result = compareStringsWithSharedPrefix(otherNode.string!!, string)
-        val returnValue = removeInternal(result.suffixWhereStringsDiffer, otherNode)
+        val removalWasSuccessful = removeInternal(result.suffixWhereStringsDiffer, otherNode)
 
-        if (otherNode.children.isEmpty()) {
+        if (!removalWasSuccessful)
+            return false
+
+
+        if (otherNode.string!! == string) {
             node.children.removeAt(index)
             moveChildrenUp(otherNode)
         }
+        if (node.parent != null && node.children.count() == 1) {
+            val onlyChild = node.children.first()
 
+            node.string = (node.string ?: "") + onlyChild.string!!
+            node.children.removeAt(0)
 
-        return returnValue
+            for (child in onlyChild.children) {
+                val i = node.searchAmongChildren(child.string!!)
+
+                if (!i.isInNode()) {
+                    node.children.add(i.index, child)
+                }
+
+                child.parent = node
+            }
+        }
+
+        return removalWasSuccessful
     }
 
     private fun moveChildrenUp(node: KRadixTreeNode) {
@@ -209,28 +232,86 @@ internal class KRadixTreeNode {
     }
 
     @Test
-    internal fun testInsertion() {
+    internal fun testBasicInsertion() {
         val strings = arrayOf( "application", "apply", "apple" )
+        runTestWithStrings(strings)
+    }
+
+    private fun runTestWithStrings(strings: Array<String>) {
         val root = KRadixTreeNode()
         val stringsProcessedSoFar = ArrayList<String>()
 
         for (string in strings) {
+            print("Adding $string...")
             root.add(string)
+            println("$string added!")
             stringsProcessedSoFar.add(string)
 
             for (s in stringsProcessedSoFar) {
+                print("\tAsserting that $s is in the node...")
                 assertTrue(s in root)
+                println("$s is in the node!")
             }
         }
 
-        for (string in strings) {
+        while (stringsProcessedSoFar.isNotEmpty()) {
+            val string = stringsProcessedSoFar.first()
+            print("Removing $string from the node...")
             root.remove(string)
-            stringsProcessedSoFar.remove(string)
+            println("$string removed from the node!")
+            stringsProcessedSoFar.removeAll { it == string }
+
+            print("Asserting that $string is no longer in the node...")
             assertFalse(string in root)
+            println("$string is not in root!")
 
             for (s in stringsProcessedSoFar) {
+                print("\tAsserting that $s is still in the node...")
                 assertTrue(s in root)
+                println("$s is still in the node!")
             }
         }
     }
+
+    @Test
+    internal fun testComplexInsertion() {
+        val strings = arrayOf( "application", "apple", "apply", "band", "bandana", "bands", "ban", "applications",
+                "apples", "applies", "bands", "bandanas", "bans" )
+
+        for (s1 in strings) {
+            for (s2 in strings) {
+                for (s3 in strings) {
+                    for (s4 in strings) {
+                        for (s5 in strings) {
+                            for (s6 in strings) {
+                                for (s7 in strings) {
+                                    for (s8 in strings) {
+                                        for (s9 in strings) {
+                                            for (s10 in strings) {
+                                                for (s11 in strings) {
+                                                    for (s12 in strings) {
+                                                        for (s13 in strings) {
+                                                            val stringsInTest = arrayOf(s1, s2, s3, s4, s5, s6, s7, s8,
+                                                                    s9, s10, s11, s12, s13 )
+                                                            println("=================================================")
+                                                            println("RUNNING TEST WITH THE FOLLOWING ITEMS")
+                                                            println("[ ${stringsInTest.joinToString(", ")} ]")
+                                                            println("=================================================")
+                                                            runTestWithStrings(stringsInTest)
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 }
