@@ -1,7 +1,6 @@
 package kotlinradixtree
 
 import org.testng.annotations.Test
-import sun.plugin.dom.exception.InvalidStateException
 import java.lang.StringBuilder
 import java.util.*
 import kotlin.test.assertFalse
@@ -10,26 +9,23 @@ import kotlin.test.assertTrue
 internal class KRadixTreeNode {
 
     protected var string: String?
-    protected var parent: KRadixTreeNode?
+    //protected var parent: KRadixTreeNode?
     protected val children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
-        parent = null
         string = null
     }
 
-    internal constructor(string: String, parent: KRadixTreeNode) {
+    internal constructor(string: String) {
         this.string = string
-        this.parent = parent
     }
 
     internal fun add(string: String) {
-        if (string.isEmpty())
-            throw IllegalArgumentException("One cannot add an empty string into a radix tree") // TODO Maybe allow this functionality in the future?
-        else if (parent == null)
-            addInternal(string)
-        else
-            throw UnsupportedOperationException("One cannot call add(String) on anything other than the root node")
+        when {
+            string.isEmpty() -> throw IllegalArgumentException("One cannot add an empty string into a radix tree") // TODO Maybe allow this functionality in the future?
+            this.string == null -> addInternal(string)
+            else -> throw UnsupportedOperationException("One cannot call add(String) on anything other than the root node")
+        }
     }
 
     private fun addInternal(string: String) {
@@ -40,7 +36,7 @@ internal class KRadixTreeNode {
 
         if (index == null) {
             val indexDataShouldBeAt = searchAmongChildren(string) as IndexDataShouldBeAt
-            children.add(indexDataShouldBeAt.index, KRadixTreeNode(string, this))
+            children.add(indexDataShouldBeAt.index, KRadixTreeNode(string))
         }
         else {
             val match = children[index]
@@ -58,11 +54,10 @@ internal class KRadixTreeNode {
             if (matchIsLongerThanString && !neededPrefixExists) {
                 children.removeAt(index)
                 val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
-                val newNode = KRadixTreeNode(result1.prefixStringsShare, this)
+                val newNode = KRadixTreeNode(result1.prefixStringsShare)
                 children.add(indexToInsert.index, newNode)
                 newNode.addInternal(result2.suffixWhereStringsDiffer)
                 for (child in originalNode.children) {
-                    child.parent = newNode
                     newNode.children[0].children.add(child)
                 }
             }
@@ -75,11 +70,10 @@ internal class KRadixTreeNode {
             else {
                 children.removeAt(index)
                 val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
-                val newNode = KRadixTreeNode(result1.prefixStringsShare, this)
+                val newNode = KRadixTreeNode(result1.prefixStringsShare)
                 children.add(indexToInsert.index, newNode)
                 newNode.addInternal(result1.suffixWhereStringsDiffer)
                 for (child in originalNode.children) {
-                    child.parent = newNode
                     newNode.children[0].children.add(child)
                 }
                 newNode.addInternal(result2.suffixWhereStringsDiffer)
@@ -122,19 +116,19 @@ internal class KRadixTreeNode {
 
         val last = matches.findLast { it != null }
 
-        if (last != null)
-            return children.indexOf(last)
+        return if (last != null)
+            children.indexOf(last)
         else
-            return null
+            null
     }
 
     internal fun remove(string: String) : Boolean {
-        if (string.isEmpty()) {
+        return if (string.isEmpty()) {
             throw IllegalArgumentException("An empty string cannot be added into a radix tree. " +
                     "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
         }
-        else if (parent == null)
-            return removeInternal(string, this)
+        else if (this.string == null)
+            removeInternal(string, this)
         else
             throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
     }
@@ -156,7 +150,7 @@ internal class KRadixTreeNode {
             node.children.removeAt(index)
             moveChildrenUp(otherNode)
         }
-        if (node.parent != null && node.children.count() == 1) {
+        if (this.string != null && node.children.count() == 1) {
             val onlyChild = node.children.first()
 
             node.string = (node.string ?: "") + onlyChild.string!!
@@ -168,8 +162,6 @@ internal class KRadixTreeNode {
                 if (!i.isInNode()) {
                     node.children.add(i.index, child)
                 }
-
-                child.parent = node
             }
         }
 
@@ -224,11 +216,10 @@ internal class KRadixTreeNode {
     }
 
     override fun toString(): String {
-        val parentString = "\"${parent?.string ?: ""}\""
         val childrenString = "[ ${children.map { it.string }.joinToString(", ")} ]"
         val string = "\"${this.string ?: ""}\""
 
-        return "KRadixTreeNode(string = $string, parent = $parentString, children = $childrenString"
+        return "KRadixTreeNode(string = $string, children = $childrenString"
     }
 
     @Test
