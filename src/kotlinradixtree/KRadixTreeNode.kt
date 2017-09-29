@@ -47,44 +47,39 @@ internal class KRadixTreeNode {
             if (match.string!! == string)
                 return match
 
-            val result1 = compareStringsWithSharedPrefix(string, match.string!!)
-            val result2 = compareStringsWithSharedPrefix(match.string!!, string)
-            val originalNode = children[index]
-            val neededPrefixExists = originalNode.string!! == result1.prefixStringsShare
-            val matchIsLongerThanString = result1.suffixWhereStringsDiffer.isEmpty() && result2.suffixWhereStringsDiffer.isNotEmpty()
-            val stringIsLongerThanMatch = result1.suffixWhereStringsDiffer.isNotEmpty() && result2.suffixWhereStringsDiffer.isEmpty()
+            val resultWithCharsInMatch = compareStringsWithSharedPrefix(string, match.string!!)
+            val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
 
-            if (matchIsLongerThanString && !neededPrefixExists) {
-                children.removeAt(index)
-                val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
-                newNode = KRadixTreeNode(result1.prefixStringsShare)
-                children.add(indexToInsert.index, newNode)
-                val temp = newNode.addInternal(result2.suffixWhereStringsDiffer)
-                for (child in originalNode.children) {
-                    newNode.children[0].children.add(child)
-                }
-                newNode = temp
-            }
-            else if (stringIsLongerThanMatch) {
-                newNode = originalNode.addInternal(result1.suffixWhereStringsDiffer)
-            }
-            else if (neededPrefixExists) {
-                newNode = originalNode.addInternal(result2.suffixWhereStringsDiffer)
-            }
-            else {
-                children.removeAt(index)
-                val indexToInsert = searchAmongChildren(result1.prefixStringsShare) as IndexDataShouldBeAt
-                newNode = KRadixTreeNode(result1.prefixStringsShare)
-                children.add(indexToInsert.index, newNode)
-                newNode.addInternal(result1.suffixWhereStringsDiffer)
-                for (child in originalNode.children) {
-                    newNode.children[0].children.add(child)
-                }
-                newNode = newNode.addInternal(result2.suffixWhereStringsDiffer)
+            newNode = if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
+                    resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
+                println("$string: Case 1")
+                match
+            } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
+                println("$string: Case 2")
+                match.addInternal(resultWithCharsInString.suffixWhereStringsDiffer)
+            } else if (resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
+                println("$string: Case 3")
+                split(index, resultWithCharsInString, string)
+            } else {
+                println("$string: Case 4")
+                split(index, resultWithCharsInMatch, string)
             }
         }
 
         return newNode
+    }
+
+    private fun split(index: Int, resultWithEmptySuffix: KRadixTreeStringComparisonResult,
+                      stringBeingAdded: String): KRadixTreeNode? {
+        val words = gatherWords()
+        children.removeAt(index)
+        addInternal(resultWithEmptySuffix.prefixStringsShare)!!
+
+        for (word in words) {
+            addInternal(word)
+        }
+
+        return addInternal(stringBeingAdded)
     }
 
     internal operator fun contains(string: String): Boolean {
@@ -155,7 +150,6 @@ internal class KRadixTreeNode {
 
         if (otherNode.string!! == str && otherNode.children.isEmpty()) {
             children.removeAt(index)
-            otherNode.moveChildrenUp()
         }
         if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
             otherNode.collapse()
@@ -187,28 +181,15 @@ internal class KRadixTreeNode {
     }.flatten()
 
     private fun gatherWords(builder: String, list: ArrayList<String>) {
-        if (children.isEmpty()) {
-            list.add(builder + string)
-        }
-
         val str = builder + string!!
+        list.add(str)
+
+        if (children.isEmpty()) {
+            return
+        }
 
         for (child in children) {
             child.gatherWords(str, list)
-        }
-    }
-
-    private fun moveChildrenUp() {
-        moveChildrenUp("")
-    }
-
-    private fun moveChildrenUp(str: String) {
-        if (children.isEmpty())
-            addInternal(str)
-        else {
-            for (child in children) {
-                child.moveChildrenUp( str + string!!)
-            }
         }
     }
 
@@ -262,7 +243,7 @@ internal class KRadixTreeNode {
     internal fun foo() {
         runTestWithStrings(arrayOf("application", "application", "application", "application", "application",
                 "application", "application", "application", "application", "application", "application",
-                "apple", "apples"))
+                "applications", "apple" ))
     }
 
     @Test
@@ -310,6 +291,9 @@ internal class KRadixTreeNode {
         val stringsProcessedSoFar = ArrayList<String>()
 
         for (string in strings) {
+            if (string == "apple")
+                println("Here we go!")
+
             print("Adding $string...")
             root.add(string)
             println("$string added!")
@@ -317,6 +301,7 @@ internal class KRadixTreeNode {
 
             for (s in stringsProcessedSoFar) {
                 print("\tAsserting that $s is in the node...")
+
                 assertTrue(s in root)
                 println("$s is in the node!")
             }
@@ -324,9 +309,6 @@ internal class KRadixTreeNode {
 
         while (stringsProcessedSoFar.isNotEmpty()) {
             val string = stringsProcessedSoFar.first()
-
-            if (string == "application")
-                println("Okay, here we go!")
 
             print("Removing $string from the node...")
             root.remove(string)
