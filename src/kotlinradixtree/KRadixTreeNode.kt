@@ -34,12 +34,12 @@ internal class KRadixTreeNode {
             return null
 
         val index = indexOfLongestStringInChildren(string)
-        var newNode: KRadixTreeNode?
 
         if (index == null) {
             val indexDataShouldBeAt = searchAmongChildren(string) as IndexDataShouldBeAt
-            newNode = KRadixTreeNode(string)
+            val newNode = KRadixTreeNode(string)
             children.add(indexDataShouldBeAt.index, newNode)
+            return newNode
         }
         else {
             val match = children[index]
@@ -50,7 +50,7 @@ internal class KRadixTreeNode {
             val resultWithCharsInMatch = compareStringsWithSharedPrefix(string, match.string!!)
             val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
 
-            newNode = if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
+            return if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
                     resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
                 println("$string: Case 1")
                 match
@@ -65,8 +65,6 @@ internal class KRadixTreeNode {
                 split(index, resultWithCharsInMatch, string)
             }
         }
-
-        return newNode
     }
 
     private fun split(index: Int, resultWithEmptySuffix: KRadixTreeStringComparisonResult,
