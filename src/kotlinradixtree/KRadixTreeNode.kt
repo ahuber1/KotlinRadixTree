@@ -134,35 +134,39 @@ internal class KRadixTreeNode {
                     "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
         }
         else if (string == null)
-            removeInternal(str)
+            removeInternal(str).first
         else
             throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
     }
 
-    private fun removeInternal(str: String) : Boolean {
+    // First - Removal was successful/unsuccessful
+    // Second - Collapse was performed
+    private fun removeInternal(str: String) : Pair<Boolean, Boolean> {
         if (str.isEmpty())
-            return true
+            return Pair(true, false)
 
-        val index = indexOfLongestStringInChildren(str) ?: return false // no match found
+        val index = indexOfLongestStringInChildren(str) ?: return Pair(false, false) // no match found
         val otherNode = children[index]
         val result = compareStringsWithSharedPrefix(otherNode.string!!, str)
-        val removalWasSuccessful = otherNode.removeInternal(result.suffixWhereStringsDiffer)
+        var (removalWasSuccessful, collapseWasPerformed) = otherNode.removeInternal(result.suffixWhereStringsDiffer)
 
         if (!removalWasSuccessful)
-            return false
+            return Pair(removalWasSuccessful, collapseWasPerformed)
 
         if (otherNode.string!! == str && otherNode.children.isEmpty()) {
             children.removeAt(index)
             otherNode.moveChildrenUp()
         }
-        if (otherNode.string != null && otherNode.children.count() == 1) {
+        if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
             otherNode.collapse()
+            collapseWasPerformed = true
         }
-        if (string != null && children.count() == 1) {
+        if (!collapseWasPerformed && string != null && children.count() == 1) {
             collapse()
+            collapseWasPerformed = true
         }
 
-        return removalWasSuccessful
+        return Pair(removalWasSuccessful, collapseWasPerformed)
     }
 
     private fun collapse() {
@@ -176,15 +180,15 @@ internal class KRadixTreeNode {
         }
     }
 
-    private fun gatherWords() : ArrayList<String> {
+    private fun gatherWords() : Iterable<String> = children.map {
         val list = ArrayList<String>()
-        gatherWords("", list)
+        it.gatherWords("", list)
         return list
-    }
+    }.flatten()
 
     private fun gatherWords(builder: String, list: ArrayList<String>) {
-        if (string!!.isEmpty()) {
-            list.add(builder)
+        if (children.isEmpty()) {
+            list.add(builder + string)
         }
 
         val str = builder + string!!
@@ -320,6 +324,10 @@ internal class KRadixTreeNode {
 
         while (stringsProcessedSoFar.isNotEmpty()) {
             val string = stringsProcessedSoFar.first()
+
+            if (string == "application")
+                println("Okay, here we go!")
+
             print("Removing $string from the node...")
             root.remove(string)
             println("$string removed from the node!")
