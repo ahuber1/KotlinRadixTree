@@ -167,8 +167,11 @@ internal class KRadixTreeNode {
             if (!removalWasSuccessful)
                 return Pair(removalWasSuccessful, collapseWasPerformed)
 
-            if (otherNode.string!! == str && otherNode.children.isEmpty()) {
-                node.children.removeAt(index)
+            if (otherNode.string!! == str) {
+                if (otherNode.children.isEmpty())
+                    node.children.removeAt(index)
+                else
+                    otherNode.endOfWord = false
             }
             if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
                 collapse(otherNode)
