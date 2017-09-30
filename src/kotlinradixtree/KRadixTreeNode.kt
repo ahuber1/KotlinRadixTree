@@ -92,6 +92,7 @@ internal class KRadixTreeNode {
             val onlyChild = node.children.first()
             val words = gatherWords(onlyChild)
             node.string += onlyChild.string
+            node.endOfWord = onlyChild.endOfWord
             node.children.removeAt(0)
 
             for (word in words) {

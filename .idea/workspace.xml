@@ -23,11 +23,21 @@
       <file leaf-file-name="KRadixTreeNode.kt" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/src/kotlinradixtree/KRadixTreeNode.kt">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="170">
-              <caret line="158" column="0" lean-forward="false" selection-start-line="158" selection-start-column="0" selection-end-line="158" selection-end-column="0" />
+            <state relative-caret-position="585">
+              <caret line="159" column="0" lean-forward="false" selection-start-line="159" selection-start-column="0" selection-end-line="159" selection-end-column="0" />
               <folding>
                 <element signature="e#25#206#0" expanded="true" />
               </folding>
+            </state>
+          </provider>
+        </entry>
+      </file>
+      <file leaf-file-name="MethodInvocationHelper.class" pinned="false" current-in-tab="false">
+        <entry file="jar://$APPLICATION_HOME_DIR$/plugins/testng/lib/testng.jar!/org/testng/internal/MethodInvocationHelper.class">
+          <provider selected="true" editor-type-id="text-editor">
+            <state relative-caret-position="179">
+              <caret line="75" column="0" lean-forward="false" selection-start-line="75" selection-start-column="0" selection-end-line="75" selection-end-column="0" />
+              <folding />
             </state>
           </provider>
         </entry>
@@ -201,7 +211,7 @@
       </list>
     </option>
   </component>
-  <component name="RunManager" selected="TestNG.KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)">
+  <component name="RunManager" selected="TestNG.kotlinradixtree">
     <configuration name="KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)" type="TestNG" factoryName="TestNG" temporary="true" nameIsGenerated="true">
       <extension name="coverage" enabled="false" merge="false" sample_coverage="true" runner="idea">
         <pattern>
@@ -449,8 +459,8 @@
     </list>
     <recent_temporary>
       <list size="5">
-        <item index="0" class="java.lang.String" itemvalue="TestNG.KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)" />
-        <item index="1" class="java.lang.String" itemvalue="TestNG.kotlinradixtree" />
+        <item index="0" class="java.lang.String" itemvalue="TestNG.kotlinradixtree" />
+        <item index="1" class="java.lang.String" itemvalue="TestNG.KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)" />
         <item index="2" class="java.lang.String" itemvalue="TestNG.KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree" />
         <item index="3" class="java.lang.String" itemvalue="TestNG.KRadixTreeNode.testBasicInsertion$production_sources_for_module_KotlinRadixTree (3)" />
         <item index="4" class="java.lang.String" itemvalue="TestNG.KRadixTreeNode.testBasicInsertion$production_sources_for_module_KotlinRadixTree (2)" />
@@ -477,14 +487,11 @@
     <history-entry file="KRadixTreeNode_foo$production_sources_for_module_KotlinRadixTree - 2017.09.30 at 14h 37m 25s.xml">
       <configuration name="KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree" configurationId="TestNG" />
     </history-entry>
-    <history-entry file="KRadixTreeNode_foo$production_sources_for_module_KotlinRadixTree_(2) - 2017.09.30 at 14h 18m 12s.xml">
-      <configuration name="KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (2)" configurationId="TestNG" />
+    <history-entry file="KRadixTreeNode_foo$production_sources_for_module_KotlinRadixTree_(1) - 2017.09.30 at 14h 41m 53s.xml">
+      <configuration name="KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)" configurationId="TestNG" />
     </history-entry>
-    <history-entry file="KRadixTreeNode_testBasicInsertion$production_sources_for_module_KotlinRadixTree - 2017.09.30 at 14h 23m 16s.xml">
-      <configuration name="KRadixTreeNode.testBasicInsertion$production_sources_for_module_KotlinRadixTree" configurationId="TestNG" />
-    </history-entry>
-    <history-entry file="KRadixTreeNode_testBasicInsertion$production_sources_for_module_KotlinRadixTree_(1) - 2017.09.30 at 14h 28m 12s.xml">
-      <configuration name="KRadixTreeNode.testBasicInsertion$production_sources_for_module_KotlinRadixTree (1)" configurationId="TestNG" />
+    <history-entry file="KRadixTreeNode_foo$production_sources_for_module_KotlinRadixTree_(1) - 2017.09.30 at 14h 43m 25s.xml">
+      <configuration name="KRadixTreeNode.foo$production_sources_for_module_KotlinRadixTree (1)" configurationId="TestNG" />
     </history-entry>
     <history-entry file="KRadixTreeNode_testBasicInsertion$production_sources_for_module_KotlinRadixTree_(1) - 2017.09.30 at 14h 30m 06s.xml">
       <configuration name="KRadixTreeNode.testBasicInsertion$production_sources_for_module_KotlinRadixTree (1)" configurationId="TestNG" />
@@ -501,6 +508,9 @@
     <history-entry file="kotlinradixtree - 2017.09.30 at 14h 37m 34s.xml">
       <configuration name="kotlinradixtree" configurationId="TestNG" />
     </history-entry>
+    <history-entry file="kotlinradixtree - 2017.09.30 at 14h 43m 31s.xml">
+      <configuration name="kotlinradixtree" configurationId="TestNG" />
+    </history-entry>
   </component>
   <component name="ToolWindowManager">
     <frame x="0" y="23" width="1920" height="1057" extended-state="6" />
@@ -511,7 +521,7 @@
       <window_info id="Palette&#9;" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Event Log" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="true" content_ui="tabs" />
       <window_info id="Maven Projects" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
-      <window_info id="Run" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.26598984" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
+      <window_info id="Run" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.26598984" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
       <window_info id="Version Control" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Terminal" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="7" side_tool="false" content_ui="tabs" />
       <window_info id="Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
@@ -519,7 +529,7 @@
       <window_info id="Structure" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="Ant Build" active="false" anchor="right" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="1" side_tool="false" content_ui="tabs" />
       <window_info id="UI Designer" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="false" content_ui="tabs" />
-      <window_info id="Debug" active="true" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="true" show_stripe_button="true" weight="0.42944163" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
+      <window_info id="Debug" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.42944163" sideWeight="0.5" order="3" side_tool="false" content_ui="tabs" />
       <window_info id="Favorites" active="false" anchor="left" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="2" side_tool="true" content_ui="tabs" />
       <window_info id="Cvs" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.25" sideWeight="0.5" order="4" side_tool="false" content_ui="tabs" />
       <window_info id="Message" active="false" anchor="bottom" auto_hide="false" internal_type="DOCKED" type="DOCKED" visible="false" show_stripe_button="true" weight="0.33" sideWeight="0.5" order="0" side_tool="false" content_ui="tabs" />
@@ -537,7 +547,7 @@
       <breakpoints>
         <line-breakpoint enabled="true" type="kotlin-line">
           <url>file://$PROJECT_DIR$/src/kotlinradixtree/KRadixTreeNode.kt</url>
-          <line>158</line>
+          <line>159</line>
           <properties />
           <option name="timeStamp" value="95" />
         </line-breakpoint>
@@ -890,13 +900,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="jar://$APPLICATION_HOME_DIR$/plugins/testng/lib/testng.jar!/org/testng/internal/MethodInvocationHelper.class">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="153">
-          <caret line="75" column="0" lean-forward="false" selection-start-line="75" selection-start-column="0" selection-end-line="75" selection-end-column="0" />
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/src/kotlinradixtree/KRadixStringComparisonResult.kt">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="90">
@@ -907,10 +910,18 @@
         </state>
       </provider>
     </entry>
+    <entry file="jar://$APPLICATION_HOME_DIR$/plugins/testng/lib/testng.jar!/org/testng/internal/MethodInvocationHelper.class">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="179">
+          <caret line="75" column="0" lean-forward="false" selection-start-line="75" selection-start-column="0" selection-end-line="75" selection-end-column="0" />
+          <folding />
+        </state>
+      </provider>
+    </entry>
     <entry file="file://$PROJECT_DIR$/src/kotlinradixtree/KRadixTreeNode.kt">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="170">
-          <caret line="158" column="0" lean-forward="false" selection-start-line="158" selection-start-column="0" selection-end-line="158" selection-end-column="0" />
+        <state relative-caret-position="585">
+          <caret line="159" column="0" lean-forward="false" selection-start-line="159" selection-start-column="0" selection-end-line="159" selection-end-column="0" />
           <folding>
             <element signature="e#25#206#0" expanded="true" />
           </folding>
