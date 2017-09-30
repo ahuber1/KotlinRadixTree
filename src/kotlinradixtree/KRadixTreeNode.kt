@@ -10,14 +10,17 @@ import kotlin.test.assertTrue
 internal class KRadixTreeNode {
 
     private var string: String?
+    private var endOfWord: Boolean
     private val children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
         string = null
+        endOfWord = false
     }
 
-    internal constructor(string: String) {
+    internal constructor(string: String, endOfWord: Boolean) {
         this.string = string
+        this.endOfWord = endOfWord
     }
 
     internal fun add(string: String) {
@@ -55,7 +58,7 @@ internal class KRadixTreeNode {
 
             if (index == null) {
                 val indexDataShouldBeAt = searchAmongChildren(node, string) as IndexDataShouldBeAt
-                val newNode = KRadixTreeNode(string)
+                val newNode = KRadixTreeNode(string, true)
                 node.children.add(indexDataShouldBeAt.index, newNode)
                 return newNode
             }
@@ -97,16 +100,17 @@ internal class KRadixTreeNode {
         }
 
         private fun contains(node: KRadixTreeNode, str: String) : Boolean {
-            if (str.isEmpty())
-                return true
-
             val index = indexOfLongestStringInChildren(node, str) ?: return false // not found
             val result = compareStringsWithSharedPrefix(node.children[index].string!!, str)
 
-            return if (node.children[index].string!! == result.prefixStringsShare)
-                contains(node.children[index], result.suffixWhereStringsDiffer)
-            else
-                false
+            if (node.children[index].string!! == result.prefixStringsShare) {
+                if (result.suffixWhereStringsDiffer.isEmpty())
+                    return node.children[index].endOfWord
+
+                return contains(node.children[index], result.suffixWhereStringsDiffer)
+            }
+
+            return false
         }
 
         private fun indexOfLongestStringInChildren(node: KRadixTreeNode, string: String) : Int? {
@@ -226,10 +230,15 @@ internal class KRadixTreeNode {
     }
 
     override fun toString(): String {
-        val childrenString = "[ ${children.map { it.string }.joinToString(", ")} ]"
-        val string = "\"${this.string ?: ""}\""
+        val childrenString = "[ ${children.map { if (it.endOfWord) "${it.string!!}*" else it.string!! }.joinToString(", ")} ]"
+        var string = this.string ?: ""
 
-        return "KRadixTreeNode(string = $string, children = $childrenString"
+        if (this.endOfWord)
+            string += "*"
+
+        string = "\"$string\""
+
+        return "KRadixTreeNode(string = $string, children = $childrenString)"
     }
 
     @Test
@@ -241,8 +250,8 @@ internal class KRadixTreeNode {
     @Test
     internal fun foo() {
         runTestWithStrings(arrayOf("application", "application", "application", "application", "application",
-                "application", "application", "application", "application", "application", "application",
-                "apple", "applies" ))
+                "application", "application", "application", "application", "application", "band",
+                "bandana", "bands" ))
     }
 
     @Test
