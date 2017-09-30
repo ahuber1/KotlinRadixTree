@@ -9,9 +9,8 @@ import kotlin.test.assertTrue
 
 internal class KRadixTreeNode {
 
-    protected var string: String?
-    //protected var parent: KRadixTreeNode?
-    protected val children = ArrayList<KRadixTreeNode>()
+    private var string: String?
+    private val children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
         string = null
@@ -33,20 +32,7 @@ internal class KRadixTreeNode {
         if (string.isEmpty())
             return false
 
-        return containsInternal(string)
-    }
-
-    private fun containsInternal(str: String) : Boolean {
-        if (str.isEmpty())
-            return true
-
-        val index = indexOfLongestStringInChildren(this, str) ?: return false // not found
-        val result = compareStringsWithSharedPrefix(children[index].string!!, str)
-
-        return if (children[index].string!! == result.prefixStringsShare)
-            children[index].containsInternal(result.suffixWhereStringsDiffer)
-        else
-            false
+        return contains(this, string)
     }
 
     internal fun remove(str: String) : Boolean {
@@ -55,82 +41,9 @@ internal class KRadixTreeNode {
                     "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
         }
         else if (string == null)
-            removeInternal(str).first
+            remove(this, str).first
         else
             throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
-    }
-
-    // First - Removal was successful/unsuccessful
-    // Second - Collapse was performed
-    private fun removeInternal(str: String) : Pair<Boolean, Boolean> {
-        if (str.isEmpty())
-            return Pair(true, false)
-
-        val index = indexOfLongestStringInChildren(this, str) ?: return Pair(false, false) // no match found
-        val otherNode = children[index]
-        val result = compareStringsWithSharedPrefix(otherNode.string!!, str)
-        var (removalWasSuccessful, collapseWasPerformed) = otherNode.removeInternal(result.suffixWhereStringsDiffer)
-
-        if (!removalWasSuccessful)
-            return Pair(removalWasSuccessful, collapseWasPerformed)
-
-        if (otherNode.string!! == str && otherNode.children.isEmpty()) {
-            children.removeAt(index)
-        }
-        if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
-            otherNode.collapse()
-            collapseWasPerformed = true
-        }
-        if (!collapseWasPerformed && string != null && children.count() == 1) {
-            collapse()
-            collapseWasPerformed = true
-        }
-
-        return Pair(removalWasSuccessful, collapseWasPerformed)
-    }
-
-    private fun collapse() {
-        val onlyChild = children.first()
-        val words = gatherWords(onlyChild)
-        string += onlyChild.string
-        children.removeAt(0)
-
-        for (word in words) {
-            add(this, word)
-        }
-    }
-
-    private fun searchAmongChildren(string: String) : KRadixTreeNodeIndex {
-        return if (children.isEmpty())
-            IndexDataShouldBeAt(0)
-        else
-            search(string, 0, children.lastIndex / 2, children.lastIndex)
-    }
-
-    private fun search(string: String, startIndex: Int, middleIndex: Int, endIndex: Int) : KRadixTreeNodeIndex {
-        val middleString = children[middleIndex].string!!
-
-        return when {
-            string == middleString -> IndexDataWasFound(middleIndex)
-            endIndex - startIndex == 0 -> middleIndex.indexDataShouldBeAt(string < middleString)
-            else -> {
-                val newStartIndex: Int
-                val newEndIndex: Int
-
-                if (string < middleString) {
-                    newStartIndex = startIndex
-                    newEndIndex = middleIndex
-                }
-                else {
-                    newStartIndex = middleIndex + 1
-                    newEndIndex = endIndex
-                }
-
-                val newMiddleIndex = ((newEndIndex - newStartIndex) / 2) + newStartIndex
-
-                return search(string, newStartIndex, newMiddleIndex, newEndIndex)
-            }
-        }
     }
 
     companion object {
@@ -141,7 +54,7 @@ internal class KRadixTreeNode {
             val index = indexOfLongestStringInChildren(node, string)
 
             if (index == null) {
-                val indexDataShouldBeAt = node.searchAmongChildren(string) as IndexDataShouldBeAt
+                val indexDataShouldBeAt = searchAmongChildren(node, string) as IndexDataShouldBeAt
                 val newNode = KRadixTreeNode(string)
                 node.children.add(indexDataShouldBeAt.index, newNode)
                 return newNode
@@ -170,6 +83,30 @@ internal class KRadixTreeNode {
                     split(node, index, resultWithCharsInMatch, string)
                 }
             }
+        }
+
+        private fun collapse(node: KRadixTreeNode) {
+            val onlyChild = node.children.first()
+            val words = gatherWords(onlyChild)
+            node.string += onlyChild.string
+            node.children.removeAt(0)
+
+            for (word in words) {
+                add(node, word)
+            }
+        }
+
+        private fun contains(node: KRadixTreeNode, str: String) : Boolean {
+            if (str.isEmpty())
+                return true
+
+            val index = indexOfLongestStringInChildren(node, str) ?: return false // not found
+            val result = compareStringsWithSharedPrefix(node.children[index].string!!, str)
+
+            return if (node.children[index].string!! == result.prefixStringsShare)
+                contains(node.children[index], result.suffixWhereStringsDiffer)
+            else
+                false
         }
 
         private fun indexOfLongestStringInChildren(node: KRadixTreeNode, string: String) : Int? {
@@ -205,6 +142,68 @@ internal class KRadixTreeNode {
 
             for (child in node.children) {
                 gatherWordsWorker(child, str, list)
+            }
+        }
+
+        // First - Removal was successful/unsuccessful
+        // Second - Collapse was performed
+        private fun remove(node: KRadixTreeNode, str: String) : Pair<Boolean, Boolean> {
+            if (str.isEmpty())
+                return Pair(true, false)
+
+            val index = indexOfLongestStringInChildren(node, str) ?: return Pair(false, false) // no match found
+            val otherNode = node.children[index]
+            val result = compareStringsWithSharedPrefix(otherNode.string!!, str)
+            var (removalWasSuccessful, collapseWasPerformed) = remove(otherNode, result.suffixWhereStringsDiffer)
+
+            if (!removalWasSuccessful)
+                return Pair(removalWasSuccessful, collapseWasPerformed)
+
+            if (otherNode.string!! == str && otherNode.children.isEmpty()) {
+                node.children.removeAt(index)
+            }
+            if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
+                collapse(otherNode)
+                collapseWasPerformed = true
+            }
+            if (!collapseWasPerformed && node.string != null && node.children.count() == 1) {
+                collapse(node)
+                collapseWasPerformed = true
+            }
+
+            return Pair(removalWasSuccessful, collapseWasPerformed)
+        }
+
+        private fun searchAmongChildren(node: KRadixTreeNode, string: String) : KRadixTreeNodeIndex {
+            return if (node.children.isEmpty())
+                IndexDataShouldBeAt(0)
+            else
+                searchAmongChildren(node, string, 0, node.children.lastIndex / 2, node.children.lastIndex)
+        }
+
+        private fun searchAmongChildren(node: KRadixTreeNode, string: String, startIndex: Int, middleIndex: Int, endIndex: Int) : KRadixTreeNodeIndex {
+            val middleString = node.children[middleIndex].string!!
+
+            return when {
+                string == middleString -> IndexDataWasFound(middleIndex)
+                endIndex - startIndex == 0 -> middleIndex.indexDataShouldBeAt(string < middleString)
+                else -> {
+                    val newStartIndex: Int
+                    val newEndIndex: Int
+
+                    if (string < middleString) {
+                        newStartIndex = startIndex
+                        newEndIndex = middleIndex
+                    }
+                    else {
+                        newStartIndex = middleIndex + 1
+                        newEndIndex = endIndex
+                    }
+
+                    val newMiddleIndex = ((newEndIndex - newStartIndex) / 2) + newStartIndex
+
+                    return searchAmongChildren(node, string, newStartIndex, newMiddleIndex, newEndIndex)
+                }
             }
         }
 
