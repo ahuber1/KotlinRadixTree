@@ -130,11 +130,15 @@ internal class KRadixTreeNode {
                 null
         }
 
-        private fun gatherWords(node: KRadixTreeNode) : Iterable<String> = node.children.map {
+        private fun gatherWords(node: KRadixTreeNode) : ArrayList<String> {
             val list = ArrayList<String>()
-            gatherWordsWorker(it,"", list)
+
+            for (child in node.children) {
+                gatherWordsWorker(child, "", list)
+            }
+
             return list
-        }.flatten()
+        }
 
         private fun gatherWordsWorker(node: KRadixTreeNode, builder: String, list: ArrayList<String>) {
             val str = builder + node.string!!
@@ -238,7 +242,7 @@ internal class KRadixTreeNode {
     internal fun foo() {
         runTestWithStrings(arrayOf("application", "application", "application", "application", "application",
                 "application", "application", "application", "application", "application", "application",
-                "applications", "apple" ))
+                "apple", "applies" ))
     }
 
     @Test
@@ -286,9 +290,6 @@ internal class KRadixTreeNode {
         val stringsProcessedSoFar = ArrayList<String>()
 
         for (string in strings) {
-            if (string == "apple")
-                println("Here we go!")
-
             print("Adding $string...")
             root.add(string)
             println("$string added!")
