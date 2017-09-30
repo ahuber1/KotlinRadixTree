@@ -13,7 +13,7 @@ internal class KRadixTreeNode {
 
     private var string: String?
     private var endOfWord: Boolean
-    private val children = ArrayList<KRadixTreeNode>()
+    private var children = ArrayList<KRadixTreeNode>()
 
     internal constructor() {
         string = null
@@ -49,7 +49,7 @@ internal class KRadixTreeNode {
             "Invalid String \"$string\": one cannot remove strings that contain whitespace characters or uppercase letters."
         }
 
-        return if (string.isNotEmpty()) remove(this, string).first else false // you cannot add empty strings; as such, you cannot remove them
+        return if (string.isNotEmpty()) remove(this, string) else false // you cannot add empty strings; as such, you cannot remove them
     }
 
     companion object {
@@ -91,17 +91,17 @@ internal class KRadixTreeNode {
             }
         }
 
-        private fun collapse(node: KRadixTreeNode) {
-            val onlyChild = node.children.first()
-            val words = gatherWords(onlyChild)
-            node.string += onlyChild.string
-            node.endOfWord = onlyChild.endOfWord
-            node.children.removeAt(0)
-
-            for (word in words) {
-                add(node, word)
-            }
-        }
+//        private fun collapse(node: KRadixTreeNode) {
+//            val onlyChild = node.children.first()
+//            val words = gatherWords(onlyChild)
+//            node.string += onlyChild.string
+//            node.endOfWord = onlyChild.endOfWord
+//            node.children.removeAt(0)
+//
+//            for (word in words) {
+//                add(node, word)
+//            }
+//        }
 
         private fun contains(node: KRadixTreeNode, str: String) : Boolean {
             val index = indexOfLongestStringInChildren(node, str) ?: return false // not found
@@ -156,17 +156,17 @@ internal class KRadixTreeNode {
 
         // First - Removal was successful/unsuccessful
         // Second - Collapse was performed
-        private fun remove(node: KRadixTreeNode, str: String) : Pair<Boolean, Boolean> {
+        private fun remove(node: KRadixTreeNode, str: String) : Boolean {
             if (str.isEmpty())
-                return Pair(true, false)
+                return true
 
-            val index = indexOfLongestStringInChildren(node, str) ?: return Pair(false, false) // no match found
+            val index = indexOfLongestStringInChildren(node, str) ?: return false // no match found
             val otherNode = node.children[index]
             val result = compareStringsWithSharedPrefix(otherNode.string!!, str)
-            var (removalWasSuccessful, collapseWasPerformed) = remove(otherNode, result.suffixWhereStringsDiffer)
+            val removalWasSuccessful = remove(otherNode, result.suffixWhereStringsDiffer)
 
             if (!removalWasSuccessful)
-                return Pair(removalWasSuccessful, collapseWasPerformed)
+                return removalWasSuccessful
 
             if (otherNode.string!! == str) {
                 if (otherNode.children.isEmpty())
@@ -174,16 +174,13 @@ internal class KRadixTreeNode {
                 else
                     otherNode.endOfWord = false
             }
-            if (!collapseWasPerformed && !otherNode.endOfWord && otherNode.string != null && otherNode.children.size == 1) {
-                collapse(otherNode)
-                collapseWasPerformed = true
-            }
-            if (!collapseWasPerformed && !node.endOfWord && node.string != null && node.children.size == 1) {
-                collapse(node)
-                collapseWasPerformed = true
+            // If node is not the root, otherNode is still one of node's children, and if node is not at the end of a
+            // word, but otherNode is, collapse otherNode into node
+            else if (node.string != null && node.children[index] == otherNode && !node.endOfWord && otherNode.endOfWord) {
+                swap(node, otherNode)
             }
 
-            return Pair(removalWasSuccessful, collapseWasPerformed)
+            return true
         }
 
         private fun searchAmongChildren(node: KRadixTreeNode, string: String) : KRadixTreeNodeIndex {
@@ -230,6 +227,12 @@ internal class KRadixTreeNode {
             }
 
             return add(node, stringBeingAdded)
+        }
+
+        private fun swap(node: KRadixTreeNode, with: KRadixTreeNode) {
+            node.children = with.children
+            node.endOfWord = with.endOfWord
+            node.string = node.string!! + with.endOfWord
         }
     }
 
