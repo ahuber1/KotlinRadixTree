@@ -21,8 +21,6 @@ internal fun Int.indexDataShouldBeAt(comesBefore: Boolean) : IndexDataShouldBeAt
     }
 }
 
-internal fun KRadixTreeNodeIndex.isInNode() : Boolean = this is IndexDataWasFound
-
 @Test fun `test index data was found extension function`() {
     val indexDataWasFound = 0.indexDataWasFound()
     assertEquals(0, indexDataWasFound.index)

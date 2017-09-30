@@ -3,7 +3,6 @@ package kotlinradixtree
 import org.testng.annotations.Test
 import java.io.File
 import java.util.*
-import kotlin.NoSuchElementException
 import kotlin.test.assertEquals
 
 fun File.readFileLazily(action: (String) -> Unit) {
@@ -12,42 +11,6 @@ fun File.readFileLazily(action: (String) -> Unit) {
             action(it.nextLine())
         }
     }
-}
-
-fun <T> List<T>.indiciesThatMatchPredicate(predicate: (T) -> Boolean) : Iterable<Int> = object: Iterable<Int> {
-    override fun iterator(): Iterator<Int> = object: Iterator<Int> {
-        private val iterator = this@indiciesThatMatchPredicate.listIterator()
-        private var nextItem: Int? = null
-        private var findNext = false
-
-        override fun next(): Int {
-            if (findNext) {
-                nextItem = findNext()
-            }
-
-            findNext = true
-            return nextItem ?: throw NoSuchElementException()
-        }
-
-        override fun hasNext(): Boolean {
-            nextItem = findNext()
-            findNext = false
-            return nextItem != null
-        }
-
-        private fun findNext() : Int? {
-            while (iterator.hasNext()) {
-                val item = iterator.next()
-                val index = iterator.nextIndex()
-
-                if (predicate(item))
-                    return index
-            }
-
-            return null
-        }
-    }
-
 }
 
 fun String.toCharArrayWithFill(newLength: Int, fillerChar: Char = '\u0000') : CharArray =
@@ -62,6 +25,18 @@ infix fun <A, B> Iterable<A>.iterateSimultaneouslyWith(otherIterable: Iterable<B
         override fun next(): Pair<A, B> = Pair(iterator1.next(), iterator2.next())
     }
 
+}
+
+// Taken from: https://github.com/gazolla/Kotlin-Algorithm/blob/master/Shuffle/Shuffle.kt
+fun <T:Comparable<T>>shuffle(items:MutableList<T>):List<T>{
+    val rg = Random()
+    for (i in 0 until items.size) {
+        val randomPosition = rg.nextInt(items.size)
+        val tmp : T = items[i]
+        items[i] = items[randomPosition]
+        items[randomPosition] = tmp
+    }
+    return items
 }
 
 @Test fun `Test readFileLazily`() {

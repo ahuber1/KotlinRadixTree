@@ -1,11 +1,13 @@
 package kotlinradixtree
 
 import org.testng.annotations.Test
+import java.io.File
 import java.lang.StringBuilder
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.test.fail
 
 internal class KRadixTreeNode {
 
@@ -24,29 +26,30 @@ internal class KRadixTreeNode {
     }
 
     internal fun add(string: String) {
-        when {
-            string.isEmpty() -> throw IllegalArgumentException("One cannot add an empty string into a radix tree") // TODO Maybe allow this functionality in the future?
-            this.string == null -> add(this, string)
-            else -> throw UnsupportedOperationException("One cannot call add(String) on anything other than the root node")
+        check(this.string == null) { "One cannot call add(String) on anything other than the root node" }
+        check(string.isNotEmpty()) { "Invalid String \"$string\": one cannot add an empty string into a radix tree" }
+        check(!string.toCharArray().any { it.isWhitespace() || it.isUpperCase() }) {
+            "Invalid String \"$string\": one cannot add strings that contain whitespace characters or uppercase letters."
         }
+        add(this, string)
     }
 
     internal operator fun contains(string: String): Boolean {
         if (string.isEmpty())
-            return false
+            return false // empty strings cannot be added into the radix tree
+        if (string.toCharArray().any { it.isWhitespace() || it.isUpperCase() } )
+            return false // cannot have characters with whitespace or with uppercase letters
 
         return contains(this, string)
     }
 
-    internal fun remove(str: String) : Boolean {
-        return if (str.isEmpty()) {
-            throw IllegalArgumentException("An empty string cannot be added into a radix tree. " +
-                    "As such, an empty string cannot be removed from a radix tree") // TODO Maybe add this functionality in the future?
+    internal fun remove(string: String) : Boolean {
+        check(this.string == null) { "You cannot call remove(String) on anything other than the root node" }
+        check(!string.toCharArray().any { it.isWhitespace() || it.isUpperCase() }) {
+            "Invalid String \"$string\": one cannot remove strings that contain whitespace characters or uppercase letters."
         }
-        else if (string == null)
-            remove(this, str).first
-        else
-            throw UnsupportedOperationException("You cannot call remove(String) on anything other than the root node")
+
+        return if (string.isNotEmpty()) remove(this, string).first else false // you cannot add empty strings; as such, you cannot remove them
     }
 
     companion object {
@@ -73,16 +76,16 @@ internal class KRadixTreeNode {
 
                 return if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
                         resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
-                    println("$string: Case 1")
+                    //println("Case 1")
                     match
                 } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
-                    println("$string: Case 2")
+                    //println("Case 2")
                     add(match, resultWithCharsInString.suffixWhereStringsDiffer)
                 } else if (resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
-                    println("$string: Case 3")
+                    //println("Case 3")
                     split(node, index, resultWithCharsInString, string)
                 } else {
-                    println("$string: Case 4")
+                    //println("Case 4")
                     split(node, index, resultWithCharsInMatch, string)
                 }
             }
@@ -115,9 +118,6 @@ internal class KRadixTreeNode {
         }
 
         private fun indexOfLongestStringInChildren(node: KRadixTreeNode, string: String) : Int? {
-            if (string.isEmpty())
-                throw IllegalArgumentException("string cannot be empty")
-
             var index = 0
             val matches = LinkedList<KRadixTreeNode?>()
             val builder = StringBuilder()
@@ -174,11 +174,11 @@ internal class KRadixTreeNode {
                 else
                     otherNode.endOfWord = false
             }
-            if (!collapseWasPerformed && otherNode.string != null && otherNode.children.count() == 1) {
+            if (!collapseWasPerformed && !otherNode.endOfWord && otherNode.string != null && otherNode.children.size == 1) {
                 collapse(otherNode)
                 collapseWasPerformed = true
             }
-            if (!collapseWasPerformed && node.string != null && node.children.count() == 1) {
+            if (!collapseWasPerformed && !node.endOfWord && node.string != null && node.children.size == 1) {
                 collapse(node)
                 collapseWasPerformed = true
             }
@@ -248,90 +248,320 @@ internal class KRadixTreeNode {
     @Test
     internal fun testBasicInsertion() {
         val strings = arrayOf( "application", "apply", "apple" )
-        runTestWithStrings(strings)
+        runTestWithStrings(strings.asIterable())
     }
 
-    @Test
+    ///@Test
     internal fun foo() {
-        runTestWithStrings(arrayOf("application", "application", "application", "application", "application",
-                "application", "application", "application", "application", "application", "band",
-                "bandana", "bands" ))
+        runTestWithStrings("""
+undertaken
+clamer
+all-maker
+renwick
+water-laid
+squadroning
+latinism
+sruti
+franco-annamese
+aiguillesque
+dunkard
+cardiopathic
+cleopatre
+insusceptibilities
+rhapsodists
+ornithichnite
+lophura
+closehauled
+sustenances
+heraclitus
+ultimated
+respeaks
+overvoltage
+torpidness
+lithiasis
+antilocapridae
+peelhouse
+hyperovaria
+sheaf
+colophene
+jargonize
+adjournal
+melanthy
+reordaining
+disinflated
+anamnestic
+rachelle
+unparticularising
+subintroduce
+deeses
+dur.
+spermatocyte
+nearliest
+kashima
+unpriced
+hallowedly
+bretagne
+mansioneer
+hanya
+reformism
+readjustments
+chiropodist
+punchlike
+dead-drifting
+humiliant
+isogenotypic
+trophospongium
+hamlinite
+unenigmatically
+interring
+sylis
+encina
+termagantism
+prinks
+unrash
+fat-choy
+euroky
+anomatheca
+crumpy
+endangerer
+backspear
+premonishment
+favoured
+atriopore
+quintuplicating
+guet-apens
+resumptively
+infants
+hoarded
+tandan
+honestete
+russo-serbian
+antimystical
+cherubim
+bifold
+anschauung
+cisc
+ramack
+bugbeardom
+demissness
+colfin
+hugged
+'em
+clitoridectomy
+interferric
+septation
+katik
+graphium
+morga
+salinas
+aleger
+reenforced
+call-out
+retroserrulate
+woolie
+duralumin
+forevouch
+rainbird
+owd
+communital
+elettaria
+bleeping
+bobtail
+naked-tailed
+occlusometer
+cross-bond
+crosswind
+extranormal
+hotelier
+house-top
+monoblepsia
+alcimedes
+luzern
+conceptible
+subtiliation
+schizophrene
+armamentary
+ehrlich
+calcifying
+convulsion's
+nonassentation
+orthometric
+laming
+flirted
+renotarized
+thymia
+brass-plated
+attentat
+unurged
+peyotism
+unconditionedly
+spondylexarthrosis
+sandalwort
+catano
+hatchers
+infantility
+bearce
+immuration
+palaeoencephala
+menthan
+dying
+cravenhearted
+emperish
+cutty-stool
+rereign
+neuroepidermal
+pseudochronism
+intersqueeze
+centrodesmus
+minibus
+alining
+preliquidate
+labiovelarized
+reacquaintance
+honobia
+leucotic
+harbingers-of-spring
+megathermal
+relaxable
+cold-type
+graecized
+collegiately
+blankety
+daunii
+coregence
+thanking
+superadorn
+hemorrhea
+hydrochemistry
+imploded
+ljutomer
+pinter
+tephrosis
+thermanesthesia
+calcified
+felicia
+presuggestive
+ethnozoological
+palembang
+variation's
+thibetan
+awaft
+loose-driving
+piedness
+beth
+            """.split("\n").map { it.trim() }.filter { it.isNotEmpty() })
     }
 
-    @Test
+    ///@Test
     internal fun testComplexInsertion() {
-        val strings = arrayOf( "application", "apple", "apply", "band", "bandana", "bands", "ban", "applications",
-                "apples", "applies", "bands", "bandanas", "bans" )
+        val root = KRadixTreeNode()
+        val fileName = "test_files/words.txt"
 
-        for (s1 in strings) {
-            for (s2 in strings) {
-                for (s3 in strings) {
-                    for (s4 in strings) {
-                        for (s5 in strings) {
-                            for (s6 in strings) {
-                                for (s7 in strings) {
-                                    for (s8 in strings) {
-                                        for (s9 in strings) {
-                                            for (s10 in strings) {
-                                                for (s11 in strings) {
-                                                    for (s12 in strings) {
-                                                        for (s13 in strings) {
-                                                            val stringsInTest = arrayOf(s1, s2, s3, s4, s5, s6, s7, s8,
-                                                                    s9, s10, s11, s12, s13 )
-                                                            println("=================================================")
-                                                            println("RUNNING TEST WITH THE FOLLOWING ITEMS")
-                                                            println("[ ${stringsInTest.map{ "\"$it\"" }.joinToString(", ")} ]")
-                                                            println("=================================================")
-                                                            runTestWithStrings(stringsInTest)
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+        File(fileName).readFileLazily {
+            val word = it.trim().toLowerCase()
+
+            if (word.isNotEmpty()) {
+                root.add(word)
+                println("Added $word")
+                assertTrue { word in root }
+            }
+        }
+
+        File(fileName).readFileLazily {
+            val word = it.trim().toLowerCase()
+
+            if (word.isNotEmpty()) {
+                root.remove(word)
+                println("Removed $word")
+                assertFalse { word in root }
             }
         }
     }
 
-    private fun runTestWithStrings(strings: Array<String>) {
+    @Test
+    internal fun testComplexInsertionWithShuffle() {
+        val root = KRadixTreeNode()
+        val fileName = "test_files/words.txt"
+        val numberOfLists = 10
+        println("Shuffling lines in \"$fileName\" 10 times")
+        val shuffledLists = List(numberOfLists) { shuffle(File(fileName).readLines().toMutableList()) }
+
+        for ((index, shuffledList) in shuffledLists.withIndex()) {
+            val listNumber = index + 1
+
+            for (item in shuffledList) {
+                val word = item.trim().toLowerCase()
+
+                if (word.isNotEmpty()) {
+                    root.add(word)
+                    println("[$listNumber of $numberOfLists] Added $word")
+                    check(word in root) { dump("$word is not in root", root) }
+                }
+            }
+
+            for (item in shuffledList) {
+                val word = item.trim().toLowerCase()
+
+                if (word.isNotEmpty()) {
+                    root.remove(word)
+                    println("[$listNumber of $numberOfLists] Removed $word")
+                    check(!(word in root)) { dump("$word IS in root", root) }
+                }
+            }
+
+            assert(root.children.isEmpty())
+        }
+    }
+
+    private fun dump(errorMessage: String?, node: KRadixTreeNode, indentation: String = "", lines: LinkedList<String> = LinkedList()) {
+        lines.add("$indentation$node")
+
+        for (child in node.children) {
+            dump(null, child, "$indentation\t", lines)
+        }
+
+        if (errorMessage == null)
+            return
+
+        File("test_files/log.txt").writeText(lines.joinToString("\n"))
+        File("test_files/log2.txt").writeText(gatherWords(node).joinToString { "\n" })
+        System.err.println("Error log is in test_files/log.txt")
+        fail(errorMessage)
+    }
+
+    private fun runTestWithStrings(strings: Iterable<String>) {
         val root = KRadixTreeNode()
         val stringsProcessedSoFar = ArrayList<String>()
 
         for (string in strings) {
-            print("Adding $string...")
+            //print("Adding $string...")
             root.add(string)
-            println("$string added!")
+            //println("$string added!")
             stringsProcessedSoFar.add(string)
 
             for (s in stringsProcessedSoFar) {
-                print("\tAsserting that $s is in the node...")
-
+                //print("\tAsserting that $s is in the node...")
                 assertTrue(s in root)
-                println("$s is in the node!")
+                //println("$s is in the node!")
             }
         }
 
         while (stringsProcessedSoFar.isNotEmpty()) {
             val string = stringsProcessedSoFar.first()
 
-            print("Removing $string from the node...")
+            //print("Removing $string from the node...")
             root.remove(string)
-            println("$string removed from the node!")
+            //println("$string removed from the node!")
             stringsProcessedSoFar.removeAll { it == string }
 
-            print("Asserting that $string is no longer in the node...")
+            //print("Asserting that $string is no longer in the node...")
             assertFalse(string in root)
-            println("$string is not in root!")
+            //println("$string is not in root!")
 
             for (s in stringsProcessedSoFar) {
-                print("\tAsserting that $s is still in the node...")
+                //print("\tAsserting that $s is still in the node...")
                 assertTrue(s in root)
-                println("$s is still in the node!")
+                //println("$s is still in the node!")
             }
         }
     }
