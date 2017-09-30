@@ -24,60 +24,9 @@ internal class KRadixTreeNode {
     internal fun add(string: String) {
         when {
             string.isEmpty() -> throw IllegalArgumentException("One cannot add an empty string into a radix tree") // TODO Maybe allow this functionality in the future?
-            this.string == null -> addInternal(string)
+            this.string == null -> add(this, string)
             else -> throw UnsupportedOperationException("One cannot call add(String) on anything other than the root node")
         }
-    }
-
-    private fun addInternal(string: String): KRadixTreeNode? {
-        if (string.isEmpty())
-            return null
-
-        val index = indexOfLongestStringInChildren(string)
-
-        if (index == null) {
-            val indexDataShouldBeAt = searchAmongChildren(string) as IndexDataShouldBeAt
-            val newNode = KRadixTreeNode(string)
-            children.add(indexDataShouldBeAt.index, newNode)
-            return newNode
-        }
-        else {
-            val match = children[index]
-
-            if (match.string!! == string)
-                return match
-
-            val resultWithCharsInMatch = compareStringsWithSharedPrefix(string, match.string!!)
-            val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
-
-            return if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
-                    resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
-                println("$string: Case 1")
-                match
-            } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
-                println("$string: Case 2")
-                match.addInternal(resultWithCharsInString.suffixWhereStringsDiffer)
-            } else if (resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
-                println("$string: Case 3")
-                split(index, resultWithCharsInString, string)
-            } else {
-                println("$string: Case 4")
-                split(index, resultWithCharsInMatch, string)
-            }
-        }
-    }
-
-    private fun split(index: Int, resultWithEmptySuffix: KRadixTreeStringComparisonResult,
-                      stringBeingAdded: String): KRadixTreeNode? {
-        val words = gatherWords()
-        children.removeAt(index)
-        addInternal(resultWithEmptySuffix.prefixStringsShare)!!
-
-        for (word in words) {
-            addInternal(word)
-        }
-
-        return addInternal(stringBeingAdded)
     }
 
     internal operator fun contains(string: String): Boolean {
@@ -91,34 +40,13 @@ internal class KRadixTreeNode {
         if (str.isEmpty())
             return true
 
-        val index = indexOfLongestStringInChildren(str) ?: return false // not found
+        val index = indexOfLongestStringInChildren(this, str) ?: return false // not found
         val result = compareStringsWithSharedPrefix(children[index].string!!, str)
 
         return if (children[index].string!! == result.prefixStringsShare)
             children[index].containsInternal(result.suffixWhereStringsDiffer)
         else
             false
-    }
-
-    internal fun indexOfLongestStringInChildren(string: String) : Int? {
-        if (string.isEmpty())
-            throw IllegalArgumentException("string cannot be empty")
-
-        var index = 0
-        val matches = LinkedList<KRadixTreeNode?>()
-        val builder = StringBuilder()
-
-        do {
-            builder.append(string[index++])
-            matches.addLast(children.find { it.string!!.startsWith(builder) })
-        }  while(builder.length < string.length && matches.last != null)
-
-        val last = matches.findLast { it != null }
-
-        return if (last != null)
-            children.indexOf(last)
-        else
-            null
     }
 
     internal fun remove(str: String) : Boolean {
@@ -138,7 +66,7 @@ internal class KRadixTreeNode {
         if (str.isEmpty())
             return Pair(true, false)
 
-        val index = indexOfLongestStringInChildren(str) ?: return Pair(false, false) // no match found
+        val index = indexOfLongestStringInChildren(this, str) ?: return Pair(false, false) // no match found
         val otherNode = children[index]
         val result = compareStringsWithSharedPrefix(otherNode.string!!, str)
         var (removalWasSuccessful, collapseWasPerformed) = otherNode.removeInternal(result.suffixWhereStringsDiffer)
@@ -163,31 +91,12 @@ internal class KRadixTreeNode {
 
     private fun collapse() {
         val onlyChild = children.first()
-        val words = onlyChild.gatherWords()
+        val words = gatherWords(onlyChild)
         string += onlyChild.string
         children.removeAt(0)
 
         for (word in words) {
-            addInternal(word)
-        }
-    }
-
-    private fun gatherWords() : Iterable<String> = children.map {
-        val list = ArrayList<String>()
-        it.gatherWords("", list)
-        return list
-    }.flatten()
-
-    private fun gatherWords(builder: String, list: ArrayList<String>) {
-        val str = builder + string!!
-        list.add(str)
-
-        if (children.isEmpty()) {
-            return
-        }
-
-        for (child in children) {
-            child.gatherWords(str, list)
+            add(this, word)
         }
     }
 
@@ -221,6 +130,95 @@ internal class KRadixTreeNode {
 
                 return search(string, newStartIndex, newMiddleIndex, newEndIndex)
             }
+        }
+    }
+
+    companion object {
+        private fun add(node: KRadixTreeNode, string: String): KRadixTreeNode? {
+            if (string.isEmpty())
+                return null
+
+            val index = indexOfLongestStringInChildren(node, string)
+
+            if (index == null) {
+                val indexDataShouldBeAt = node.searchAmongChildren(string) as IndexDataShouldBeAt
+                val newNode = KRadixTreeNode(string)
+                node.children.add(indexDataShouldBeAt.index, newNode)
+                return newNode
+            }
+            else {
+                val match = node.children[index]
+
+                if (match.string!! == string)
+                    return match
+
+                val resultWithCharsInMatch = compareStringsWithSharedPrefix(string, match.string!!)
+                val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
+
+                return if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
+                        resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
+                    println("$string: Case 1")
+                    match
+                } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
+                    println("$string: Case 2")
+                    add(match, resultWithCharsInString.suffixWhereStringsDiffer)
+                } else if (resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
+                    println("$string: Case 3")
+                    split(node, index, resultWithCharsInString, string)
+                } else {
+                    println("$string: Case 4")
+                    split(node, index, resultWithCharsInMatch, string)
+                }
+            }
+        }
+
+        private fun indexOfLongestStringInChildren(node: KRadixTreeNode, string: String) : Int? {
+            if (string.isEmpty())
+                throw IllegalArgumentException("string cannot be empty")
+
+            var index = 0
+            val matches = LinkedList<KRadixTreeNode?>()
+            val builder = StringBuilder()
+
+            do {
+                builder.append(string[index++])
+                matches.addLast(node.children.find { it.string!!.startsWith(builder) })
+            }  while(builder.length < string.length && matches.last != null)
+
+            val last = matches.findLast { it != null }
+
+            return if (last != null)
+                node.children.indexOf(last)
+            else
+                null
+        }
+
+        private fun gatherWords(node: KRadixTreeNode) : Iterable<String> = node.children.map {
+            val list = ArrayList<String>()
+            gatherWordsWorker(it,"", list)
+            return list
+        }.flatten()
+
+        private fun gatherWordsWorker(node: KRadixTreeNode, builder: String, list: ArrayList<String>) {
+            val str = builder + node.string!!
+            list.add(str)
+
+            for (child in node.children) {
+                gatherWordsWorker(child, str, list)
+            }
+        }
+
+        private fun split(node: KRadixTreeNode, index: Int, resultWithEmptySuffix: KRadixTreeStringComparisonResult,
+                          stringBeingAdded: String): KRadixTreeNode? {
+            val words = gatherWords(node)
+            node.children.removeAt(index)
+            add(node, resultWithEmptySuffix.prefixStringsShare)!!
+
+            for (word in words) {
+                add(node, word)
+            }
+
+            return add(node, stringBeingAdded)
         }
     }
 
