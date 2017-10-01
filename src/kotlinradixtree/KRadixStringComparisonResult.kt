@@ -27,12 +27,31 @@ internal fun compareStringsWithSharedPrefix(string1: String, string2: String) : 
     return KRadixTreeStringComparisonResult(shareString, differString)
 }
 
-@Test fun `Test KRadixTreeStringCompare`() {
-    val string1 = "table"
-    val string2 = "tables"
-    val expectedSimilarPrefix = "table"
-    val expectedDissimilarSuffix = "s"
-    val result = compareStringsWithSharedPrefix(string1, string2)
+@Test
+fun `Test KRadixTreeStringCompare`() {
+    var string1 = "table"
+    var string2 = "tables"
+    var expectedSimilarPrefix = "table"
+    var expectedDissimilarSuffix = "s"
+    var result = compareStringsWithSharedPrefix(string1, string2)
+
+    assertEquals(expectedSimilarPrefix, result.prefixStringsShare)
+    assertEquals(expectedDissimilarSuffix, result.suffixWhereStringsDiffer)
+
+    string1 = "tables"
+    string2 = "table"
+    expectedSimilarPrefix = "table"
+    expectedDissimilarSuffix = ""
+    result = compareStringsWithSharedPrefix(string1, string2)
+
+    assertEquals(expectedSimilarPrefix, result.prefixStringsShare)
+    assertEquals(expectedDissimilarSuffix, result.suffixWhereStringsDiffer)
+
+    string1 = "table"
+    string2 = "table"
+    expectedSimilarPrefix = "table"
+    expectedDissimilarSuffix = ""
+    result = compareStringsWithSharedPrefix(string1, string2)
 
     assertEquals(expectedSimilarPrefix, result.prefixStringsShare)
     assertEquals(expectedDissimilarSuffix, result.suffixWhereStringsDiffer)
