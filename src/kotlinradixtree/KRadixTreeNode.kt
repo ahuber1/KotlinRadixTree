@@ -7,7 +7,6 @@ import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.test.fail
 
 internal class KRadixTreeNode {
 
@@ -68,8 +67,10 @@ internal class KRadixTreeNode {
             else {
                 val match = node.children[index]
 
-                if (match.string!! == string)
+                if (match.string!! == string) {
+                    match.endOfWord = true
                     return match
+                }
 
                 val resultWithCharsInMatch = compareStringsWithSharedPrefix(string, match.string!!)
                 val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
@@ -81,7 +82,7 @@ internal class KRadixTreeNode {
                 } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
                     //println("Case 2")
                     add(match, resultWithCharsInString.suffixWhereStringsDiffer)
-                } else if (resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
+                } else if (resultWithCharsInString.suffixWhereStringsDiffer.isNotEmpty()) {
                     //println("Case 3")
                     split(node, index, resultWithCharsInString, string)
                 } else {
@@ -91,17 +92,11 @@ internal class KRadixTreeNode {
             }
         }
 
-//        private fun collapse(node: KRadixTreeNode) {
-//            val onlyChild = node.children.first()
-//            val words = gatherWords(onlyChild)
-//            node.string += onlyChild.string
-//            node.endOfWord = onlyChild.endOfWord
-//            node.children.removeAt(0)
-//
-//            for (word in words) {
-//                add(node, word)
-//            }
-//        }
+        private fun combine(node: KRadixTreeNode, with: KRadixTreeNode) {
+            node.children = with.children
+            node.endOfWord = with.endOfWord
+            node.string = node.string!! + with.string
+        }
 
         private fun contains(node: KRadixTreeNode, str: String) : Boolean {
             val index = indexOfLongestStringInChildren(node, str) ?: return false // not found
@@ -135,22 +130,24 @@ internal class KRadixTreeNode {
                 null
         }
 
-        private fun gatherWords(node: KRadixTreeNode) : ArrayList<String> {
-            val list = ArrayList<String>()
+        private fun getCompleteWords(node: KRadixTreeNode) : List<String> {
+            val list = LinkedList<String>()
 
             for (child in node.children) {
-                gatherWordsWorker(child, "", list)
+                getCompleteWordsWorker(child, "", list)
             }
 
             return list
         }
 
-        private fun gatherWordsWorker(node: KRadixTreeNode, builder: String, list: ArrayList<String>) {
+        private fun getCompleteWordsWorker(node: KRadixTreeNode, builder: String, list: LinkedList<String>) {
             val str = builder + node.string!!
-            list.add(str)
+
+            if (node.endOfWord)
+                list.add(str)
 
             for (child in node.children) {
-                gatherWordsWorker(child, str, list)
+                getCompleteWordsWorker(child, str, list)
             }
         }
 
@@ -174,10 +171,13 @@ internal class KRadixTreeNode {
                 else
                     otherNode.endOfWord = false
             }
+            if (otherNode.children.size == 1 && !otherNode.endOfWord && otherNode.children.first().endOfWord) {
+                combine(otherNode, otherNode.children.first())
+            }
             // If node is not the root, otherNode is still one of node's children, and if node is not at the end of a
             // word, but otherNode is, collapse otherNode into node
-            else if (node.string != null && node.children[index] == otherNode && !node.endOfWord && otherNode.endOfWord) {
-                swap(node, otherNode)
+            if (node.string != null && node.children.size == 1 && !node.endOfWord && node.children.first().endOfWord) {
+                combine(node, node.children.first())
             }
 
             return true
@@ -218,21 +218,15 @@ internal class KRadixTreeNode {
 
         private fun split(node: KRadixTreeNode, index: Int, resultWithEmptySuffix: KRadixTreeStringComparisonResult,
                           stringBeingAdded: String): KRadixTreeNode? {
-            val words = gatherWords(node)
+            val words = getCompleteWords(node)
             node.children.removeAt(index)
-            add(node, resultWithEmptySuffix.prefixStringsShare)!!
+            add(node, resultWithEmptySuffix.prefixStringsShare)!!.endOfWord = false
 
             for (word in words) {
                 add(node, word)
             }
 
             return add(node, stringBeingAdded)
-        }
-
-        private fun swap(node: KRadixTreeNode, with: KRadixTreeNode) {
-            node.children = with.children
-            node.endOfWord = with.endOfWord
-            node.string = node.string!! + with.endOfWord
         }
     }
 
@@ -249,236 +243,85 @@ internal class KRadixTreeNode {
     }
 
     @Test
-    internal fun testBasicInsertion() {
-        val strings = arrayOf( "application", "apply", "apple" )
-        runTestWithStrings(strings.asIterable())
-    }
-
-    ///@Test
     internal fun foo() {
-        runTestWithStrings("""
-undertaken
-clamer
-all-maker
-renwick
-water-laid
-squadroning
-latinism
-sruti
-franco-annamese
-aiguillesque
-dunkard
-cardiopathic
-cleopatre
-insusceptibilities
-rhapsodists
-ornithichnite
-lophura
-closehauled
-sustenances
-heraclitus
-ultimated
-respeaks
-overvoltage
-torpidness
-lithiasis
-antilocapridae
-peelhouse
-hyperovaria
-sheaf
-colophene
-jargonize
-adjournal
-melanthy
-reordaining
-disinflated
-anamnestic
-rachelle
-unparticularising
-subintroduce
-deeses
-dur.
-spermatocyte
-nearliest
-kashima
-unpriced
-hallowedly
-bretagne
-mansioneer
-hanya
-reformism
-readjustments
-chiropodist
-punchlike
-dead-drifting
-humiliant
-isogenotypic
-trophospongium
-hamlinite
-unenigmatically
-interring
-sylis
-encina
-termagantism
-prinks
-unrash
-fat-choy
-euroky
-anomatheca
-crumpy
-endangerer
-backspear
-premonishment
-favoured
-atriopore
-quintuplicating
-guet-apens
-resumptively
-infants
-hoarded
-tandan
-honestete
-russo-serbian
-antimystical
-cherubim
-bifold
-anschauung
-cisc
-ramack
-bugbeardom
-demissness
-colfin
-hugged
-'em
-clitoridectomy
-interferric
-septation
-katik
-graphium
-morga
-salinas
-aleger
-reenforced
-call-out
-retroserrulate
-woolie
-duralumin
-forevouch
-rainbird
-owd
-communital
-elettaria
-bleeping
-bobtail
-naked-tailed
-occlusometer
-cross-bond
-crosswind
-extranormal
-hotelier
-house-top
-monoblepsia
-alcimedes
-luzern
-conceptible
-subtiliation
-schizophrene
-armamentary
-ehrlich
-calcifying
-convulsion's
-nonassentation
-orthometric
-laming
-flirted
-renotarized
-thymia
-brass-plated
-attentat
-unurged
-peyotism
-unconditionedly
-spondylexarthrosis
-sandalwort
-catano
-hatchers
-infantility
-bearce
-immuration
-palaeoencephala
-menthan
-dying
-cravenhearted
-emperish
-cutty-stool
-rereign
-neuroepidermal
-pseudochronism
-intersqueeze
-centrodesmus
-minibus
-alining
-preliquidate
-labiovelarized
-reacquaintance
-honobia
-leucotic
-harbingers-of-spring
-megathermal
-relaxable
-cold-type
-graecized
-collegiately
-blankety
-daunii
-coregence
-thanking
-superadorn
-hemorrhea
-hydrochemistry
-imploded
-ljutomer
-pinter
-tephrosis
-thermanesthesia
-calcified
-felicia
-presuggestive
-ethnozoological
-palembang
-variation's
-thibetan
-awaft
-loose-driving
-piedness
-beth
-            """.split("\n").map { it.trim() }.filter { it.isNotEmpty() })
-    }
-
-    ///@Test
-    internal fun testComplexInsertion() {
-        val root = KRadixTreeNode()
-        val fileName = "test_files/words.txt"
-
-        File(fileName).readFileLazily {
-            val word = it.trim().toLowerCase()
-
-            if (word.isNotEmpty()) {
-                root.add(word)
-                println("Added $word")
-                assertTrue { word in root }
-            }
-        }
-
-        File(fileName).readFileLazily {
-            val word = it.trim().toLowerCase()
-
-            if (word.isNotEmpty()) {
-                root.remove(word)
-                println("Removed $word")
-                assertFalse { word in root }
-            }
-        }
+        val words =  """|scratchback
+                        |passion-flower
+                        |woleai
+                        |marwar
+                        |unobediently
+                        |flourescent
+                        |spinode
+                        |atomisation
+                        |epiglottitis
+                        |blather
+                        |anatomise
+                        |philocynicism
+                        |nonretiring
+                        |butterbox
+                        |odessa
+                        |held
+                        |coffle
+                        |overcontraction
+                        |notedly
+                        |erick
+                        |showrooms
+                        |by-paths
+                        |sulpha
+                        |interments
+                        |scandaled
+                        |usis
+                        |wamuses
+                        |pelagia
+                        |remission
+                        |takhaar
+                        |wrestle
+                        |oysterbird
+                        |aesthetically
+                        |flounder-man
+                        |belltail
+                        |mitten
+                        |proudishly
+                        |osteophlebitis
+                        |kirimon
+                        |corylin
+                        |amenorrhea
+                        |fusain
+                        |bicornate
+                        |delirament
+                        |centration
+                        |admissible
+                        |comdr
+                        |mugwort
+                        |badb
+                        |multitentaculate
+                        |rheostatics
+                        |ecchondrotome
+                        |rhinolalia
+                        |nitroso-
+                        |mauvine
+                        |heatstroke
+                        |petune
+                        |ungambled
+                        |equidivision
+                        |pothooks
+                        |duskiest
+                        |ultra-argumentative
+                        |mau-mau
+                        |triturator
+                        |acknew
+                        |curator
+                        |ciardi
+                        |physed
+                        |sentimentaliser
+                        |interoceptor
+                        |doting
+                        |anti-freudianism
+                        |drolet
+                        |aproning
+                        |undermark
+                        |saponite
+                        |rhino""".trimMargin().split('\n')
+        runTestWithWords(words, KRadixTreeNode(), 1, 1)
     }
 
     @Test
@@ -490,82 +333,47 @@ beth
         val shuffledLists = List(numberOfLists) { shuffle(File(fileName).readLines().toMutableList()) }
 
         for ((index, shuffledList) in shuffledLists.withIndex()) {
-            val listNumber = index + 1
-
-            for (item in shuffledList) {
-                val word = item.trim().toLowerCase()
-
-                if (word.isNotEmpty()) {
-                    root.add(word)
-                    println("[$listNumber of $numberOfLists] Added $word")
-                    check(word in root) { dump("$word is not in root", root) }
-                }
-            }
-
-            for (item in shuffledList) {
-                val word = item.trim().toLowerCase()
-
-                if (word.isNotEmpty()) {
-                    root.remove(word)
-                    println("[$listNumber of $numberOfLists] Removed $word")
-                    check(!(word in root)) { dump("$word IS in root", root) }
-                }
-            }
-
-            assert(root.children.isEmpty())
+            runTestWithWords(shuffledList, root, index + 1, numberOfLists)
         }
     }
 
-    private fun dump(errorMessage: String?, node: KRadixTreeNode, indentation: String = "", lines: LinkedList<String> = LinkedList()) {
-        lines.add("$indentation$node")
+    private fun runTestWithWords(list: List<String>, root: KRadixTreeNode, listNumber: Int, numberOfLists: Int) {
+        var words = getCompleteWords(root)
+        var stepsComplete = 1.0
+        val stepsToComplete = (list.size * 2).toDouble()
+        for (item in list) {
+            val word = item.trim().toLowerCase()
 
-        for (child in node.children) {
-            dump(null, child, "$indentation\t", lines)
-        }
+            if (word == "rhino")
+                println("here we go!")
 
-        if (errorMessage == null)
-            return
-
-        File("test_files/log.txt").writeText(lines.joinToString("\n"))
-        File("test_files/log2.txt").writeText(gatherWords(node).joinToString { "\n" })
-        System.err.println("Error log is in test_files/log.txt")
-        fail(errorMessage)
-    }
-
-    private fun runTestWithStrings(strings: Iterable<String>) {
-        val root = KRadixTreeNode()
-        val stringsProcessedSoFar = ArrayList<String>()
-
-        for (string in strings) {
-            //print("Adding $string...")
-            root.add(string)
-            //println("$string added!")
-            stringsProcessedSoFar.add(string)
-
-            for (s in stringsProcessedSoFar) {
-                //print("\tAsserting that $s is in the node...")
-                assertTrue(s in root)
-                //println("$s is in the node!")
+            if (word.isNotEmpty()) {
+                root.add(word)
+                println("[$listNumber of $numberOfLists - ${((stepsComplete * 100.0) / stepsToComplete).format(2)}%] Added $word")
+                //val list = getCompleteWords(root)
+                //val difference = list.size - words.size
+                assertTrue(word in root)
+                //assert(difference == 1) { "Missing ${list.filter { it !in words }.joinToString(", ")}" }
+                words = list
+                stepsComplete += 1.0
             }
         }
 
-        while (stringsProcessedSoFar.isNotEmpty()) {
-            val string = stringsProcessedSoFar.first()
+        for (item in list) {
+            val word = item.trim().toLowerCase()
 
-            //print("Removing $string from the node...")
-            root.remove(string)
-            //println("$string removed from the node!")
-            stringsProcessedSoFar.removeAll { it == string }
-
-            //print("Asserting that $string is no longer in the node...")
-            assertFalse(string in root)
-            //println("$string is not in root!")
-
-            for (s in stringsProcessedSoFar) {
-                //print("\tAsserting that $s is still in the node...")
-                assertTrue(s in root)
-                //println("$s is still in the node!")
+            if (word.isNotEmpty()) {
+                root.remove(word)
+                println("[$listNumber of $numberOfLists - ${((stepsComplete * 100.0) / stepsToComplete).format(2)}%] Removed $word")
+                //val list = getCompleteWords(root)
+                //val difference = words.size - list.size
+                assertFalse(word in root)
+                //assert(difference == 1) { "Missing ${words.filter { it !in list }.joinToString(", ")}" }
+                words = list
+                stepsComplete += 1.0
             }
         }
+
+        assert(root.children.isEmpty()) { root.toString() }
     }
 }

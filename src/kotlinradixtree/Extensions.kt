@@ -24,8 +24,14 @@ infix fun <A, B> Iterable<A>.iterateSimultaneouslyWith(otherIterable: Iterable<B
 
         override fun next(): Pair<A, B> = Pair(iterator1.next(), iterator2.next())
     }
-
 }
+
+fun Double.format(numDigits: Int) : String {
+    check(numDigits >= 0) { "numDigits must be greater than or equal to zero" }
+    return String.format("%.${numDigits}f}", this)
+}
+
+fun Float.format(numDigits: Int) : String = this.toDouble().format(numDigits)
 
 // Taken from: https://github.com/gazolla/Kotlin-Algorithm/blob/master/Shuffle/Shuffle.kt
 fun <T:Comparable<T>>shuffle(items:MutableList<T>):List<T>{
