@@ -111,18 +111,10 @@ class KRadixTree {
                     val resultWithCharsInString = compareStringsWithSharedPrefix(match.string!!, string)
 
                     return if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty() &&
-                            resultWithCharsInString.suffixWhereStringsDiffer.isEmpty()) {
-                        //println("Case 1")
-                        match
-                    } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isEmpty()) {
-                        //println("Case 2")
+                            resultWithCharsInString.suffixWhereStringsDiffer.isNotEmpty()) {
                         add(match, resultWithCharsInString.suffixWhereStringsDiffer)
-                    } else if (resultWithCharsInMatch.suffixWhereStringsDiffer.isNotEmpty()) {
-                        //println("Case 3")
-                        split(node, match, resultWithCharsInString, string)
                     } else {
-                        //println("Case 4")
-                        split(node, match, resultWithCharsInMatch, string)
+                        split(node, match, resultWithCharsInString, string)
                     }
                 }
             }
