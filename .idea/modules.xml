@@ -2,7 +2,9 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/KotlinRadixTree.iml" filepath="$PROJECT_DIR$/KotlinRadixTree.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/kradixtree.iml" filepath="$PROJECT_DIR$/.idea/modules/kradixtree.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/kradixtree_main.iml" filepath="$PROJECT_DIR$/.idea/modules/kradixtree_main.iml" group="kradixtree" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/kradixtree_test.iml" filepath="$PROJECT_DIR$/.idea/modules/kradixtree_test.iml" group="kradixtree" />
     </modules>
   </component>
 </project>
