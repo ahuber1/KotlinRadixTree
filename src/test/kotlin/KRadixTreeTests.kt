@@ -103,32 +103,42 @@ private fun runTestWithWords(list: List<String>, tree: KRadixTree, listNumber: I
     var stepsComplete = 1.0
     val stepsToComplete = (list.size * 2).toDouble()
     var size = tree.size
+    var nextPercentage = 10
     for (item in list) {
         val word = item.trim().toLowerCase()
 
         if (word.isNotEmpty()) {
             tree.add(word)
-            println("[$listNumber of $numberOfLists - ${((stepsComplete * 100.0) / stepsToComplete).format(2)}%] Added $word")
+            val percentComplete = ((stepsComplete * 100.0) / stepsToComplete)
+            //println("[$listNumber of $numberOfLists - ${percentComplete.format(2)}%] Added $word")
             Assert.assertTrue(word in tree)
             assert(tree.size - size == 1)
             size = tree.size
             stepsComplete += 1.0
+
+            if (percentComplete >= nextPercentage) {
+                println("[List $listNumber of $numberOfLists] ${percentComplete.format(2)}% complete")
+                nextPercentage += 10
+            }
         }
     }
 
     for (item in list) {
         val word = item.trim().toLowerCase()
 
-        if (word == "wamuses")
-            println("here we go!")
-
         if (word.isNotEmpty()) {
             tree.remove(word)
-            println("[$listNumber of $numberOfLists - ${((stepsComplete * 100.0) / stepsToComplete).format(2)}%] Removed $word")
+            val percentComplete = ((stepsComplete * 100.0) / stepsToComplete)
+            //println("[$listNumber of $numberOfLists - ${percentComplete.format(2)}%] Removed $word")
             Assert.assertFalse(word in tree)
             assert(tree.size - size == -1)
             size = tree.size
             stepsComplete += 1.0
+
+            if (percentComplete >= nextPercentage) {
+                println("[List $listNumber of $numberOfLists] ${percentComplete.format(2)}% complete")
+                nextPercentage += 10
+            }
         }
     }
 
