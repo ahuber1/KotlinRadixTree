@@ -1,5 +1,4 @@
-import kotlinradixtree.format
-import kotlinradixtree.shuffle
+import kotlinradixtree.*
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.io.File

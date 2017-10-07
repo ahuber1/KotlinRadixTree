@@ -1,7 +1,7 @@
-import kotlinradixtree.*
+package kotlinradixtree
+
 import org.testng.Assert.*
 import org.testng.annotations.Test
-import java.io.File
 import java.util.*
 
 class KRadixTree {
@@ -18,7 +18,7 @@ class KRadixTree {
 
     operator fun contains(string: String) : Boolean = root.contains(string)
 
-    fun remove(string: String) : Boolean {
+    fun remove(string: String) : Boolean {        
         if (root.remove(string)) {
             size--
             return true
