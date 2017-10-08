@@ -13,17 +13,26 @@ fun main(args: Array<String>) {
         println("Result ===========================================================")
         for (kotlinRadixParserResult in list) {
             println(kotlinRadixParserResult)
+            Thread.sleep(1500)
         }
         println("==================================================================")
     }
 }
 
-fun String.radixParse() : MutableList<MutableList<KotlinRadixParserResult>> {
+fun String.radixParse() : Iterable<Iterable<KotlinRadixParserResult>> {
     println("Formatting string...")
     val string = this.filter { !it.isWhitespace() }
     println("Loading Radix Tree...")
     val radixTree = KRadixTree()
-    listOf("the", "quick", "brown", "fox", "jumped", "over", "the", "lazy", "sheep", "sheepdog", "dog").forEach { radixTree.add(it) }
+    File("test_files/words.txt").readFileLazily {
+        val word = it.trim().toLowerCase()
+
+        if (word.isNotEmpty()) {
+            println("Adding $word")
+            radixTree.add(word)
+        }
+    }
+    //"the quick brown fox jumped over the lazy sheep dog".split(' ').flatMap { it.asIterable() }.map { it.toString() }.forEach { radixTree.add(it) }
     return radixParse(string, 0, radixTree)
 }
 
