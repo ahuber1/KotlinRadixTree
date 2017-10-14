@@ -70,9 +70,14 @@ private fun <T> makeIterator(outerIterator: Iterator<Iterable<T>>) : Iterable<T>
         var currentIterables: Iterator<T>? = null
 
         override fun hasNext(): Boolean {
-            if (currentIterables == null && innerIterator.hasNext()) {
-                currentIterables = innerIterator.next().iterator()
-                return currentIterables!!.hasNext()
+            if (currentIterables == null) {
+                if (innerIterator.hasNext()) {
+                    currentIterables = innerIterator.next().iterator()
+                    return currentIterables!!.hasNext()
+                }
+                else {
+                    return false
+                }
             }
 
             if (currentIterables!!.hasNext())

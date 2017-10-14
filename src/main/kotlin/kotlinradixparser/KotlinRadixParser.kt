@@ -1,92 +1,100 @@
 package kotlinradixparser
 
-import java.io.File
 import kotlinradixtree.KRadixTree
 import kotlinradixtree.readFileLazily
-import org.testng.annotations.Test
+import java.io.File
 import java.util.*
 
 data class KotlinRadixParserResult(val string: String, val wasOnRecord: Boolean)
 
-fun main(args: Array<String>) {
-    for (list in ".the quick brown fox jumped over the lazy sheep dog".radixParse()) {
-        println("Result ===========================================================")
-        for (kotlinRadixParserResult in list) {
-            println(kotlinRadixParserResult)
-            Thread.sleep(1500)
-        }
-        println("==================================================================")
-    }
-}
+fun String.radixParse() : Iterable<Iterable<KotlinRadixParserResult>> = KotlinRadixParser(this).parse()
 
-fun String.radixParse() : Iterable<Iterable<KotlinRadixParserResult>> {
-    println("Formatting string...")
-    val string = this.filter { !it.isWhitespace() }
-    println("Loading Radix Tree...")
-    val radixTree = KRadixTree()
-    File("test_files/words.txt").readFileLazily {
-        val word = it.trim().toLowerCase()
+private class KotlinRadixParser(string: String) {
 
-        if (word.isNotEmpty()) {
-            println("Adding $word")
-            radixTree.add(word)
-        }
-    }
-    //"the quick brown fox jumped over the lazy sheep dog".split(' ').flatMap { it.asIterable() }.map { it.toString() }.forEach { radixTree.add(it) }
-    return radixParse(string, 0, radixTree)
-}
+    private val string: String
+    private var maximumNumberOfUnknownWords: Int? = null
+    private val radixTree: KRadixTree by lazy {
+        println("Loading Radix Tree...")
+        val radixTree = KRadixTree()
+        File("test_files/words.txt").readFileLazily {
+            val word = it.trim().toLowerCase()
 
-private fun radixParse(string: String, startIndex: Int, radixTree: KRadixTree) : MutableList<MutableList<KotlinRadixParserResult>> {
-    val returnVal = mutableListOf<MutableList<KotlinRadixParserResult>>()
-    val results = getKotlinRadixParserResultsForStringStartingAtIndex(string, startIndex, radixTree)
-
-    for (result in results) {
-        val subresults = radixParse(string, startIndex + result.string.length, radixTree)
-
-        if (subresults.isNotEmpty()) {
-            for (subresult in subresults) {
-                subresult.add(0, result)
+            if (word.isNotEmpty()) {
+                println("Adding $word")
+                radixTree.add(word)
             }
 
-            returnVal.addAll(subresults)
         }
-        else {
-            returnVal.add(mutableListOf(result))
-        }
+        return@lazy radixTree
     }
 
-    return returnVal
-}
+    init {
+        this.string = string.filter { !it.isWhitespace() }.toLowerCase()
+    }
 
-private fun getKotlinRadixParserResultsForStringStartingAtIndex(string: String, startIndex: Int, radixTree: KRadixTree) : MutableList<KotlinRadixParserResult> {
-    val results = mutableListOf<KotlinRadixParserResult>()
-    
-    // Progressively make longer and longer strings, and only put the ones that are in the KRadixTree into results
-    (startIndex..string.length).map { string.substring(startIndex, it) }
-            .filter { !it.isEmpty() && it in radixTree }
-            .mapTo(results) { KotlinRadixParserResult(it, true) }
+    fun parse() : Iterable<Iterable<KotlinRadixParserResult>> = parse(string, 0, 0).sortedBy { it.countKnownWords() }
 
-    if (results.isNotEmpty())
-        return results
+    private fun parse(string: String, startIndex: Int, numberOfUnknownWords: Int) : LinkedList<LinkedList<KotlinRadixParserResult>> {
+        val results = getKotlinRadixParserResultsForStringStartingAtIndex(string, startIndex)
+        val returnVal = LinkedList<LinkedList<KotlinRadixParserResult>>()
 
-    for (left in (startIndex + 1)..string.length) {
-        for (right in (left + 1)..string.length) {
-            var substring = string.substring(left, right)
+        if (results.any()) {
+            for (result in results) {
+                println((0..startIndex).joinToString("") { " " } + result)
 
-            if (substring.isEmpty())
-                continue
+                if (maximumNumberOfUnknownWords != null && !result.wasOnRecord && numberOfUnknownWords + 1 > maximumNumberOfUnknownWords!!) {
+                    continue
+                }
 
-            if (substring in radixTree) {
-               substring = string.substring(startIndex, left)
+                val newNumberOfUnknownWords = numberOfUnknownWords + (if (result.wasOnRecord) 0 else 1)
+                val subresults = parse(string, startIndex + result.string.length, newNumberOfUnknownWords)
 
-                if (substring.isNotEmpty())
-                    results.add(KotlinRadixParserResult(substring, false))
+                if (subresults.any()) {
+                    for (subresult in subresults) {
+                        subresult.addFirst(result)
+                    }
 
-                return results
+                    returnVal.addAll(subresults)
+                }
             }
         }
+        else if (maximumNumberOfUnknownWords == null || numberOfUnknownWords > (maximumNumberOfUnknownWords ?: Int.MIN_VALUE)) {
+            maximumNumberOfUnknownWords = numberOfUnknownWords
+        }
+
+        return returnVal
     }
 
-    return results
+    private fun getKotlinRadixParserResultsForStringStartingAtIndex(string: String, startIndex: Int) : Iterable<KotlinRadixParserResult> {
+        // Progressively make longer and longer strings, and only put the ones that are in the KRadixTree into results
+        val results = (startIndex..string.length).mapLazy { string.substring(startIndex, it) }
+                .filterLazy { !it.isEmpty() && it in radixTree }
+
+        if (results.any())
+            return results.sortedByDescending { it.length }.mapLazy { KotlinRadixParserResult(it, true) }
+
+        val list = mutableListOf<KotlinRadixParserResult>()
+
+        for (left in (startIndex + 1)..string.length) {
+            for (right in (left + 1)..string.length) {
+                var substring = string.substring(left, right)
+
+                if (substring.isEmpty())
+                    continue
+
+                if (substring in radixTree) {
+                    substring = string.substring(startIndex, left)
+
+                    if (substring.isNotEmpty()) {
+                        list.add(KotlinRadixParserResult(substring, false))
+                        return list
+                    }
+                }
+            }
+        }
+
+        return list
+    }
 }
 
+private fun Iterable<KotlinRadixParserResult>.countKnownWords() = this.count { it.wasOnRecord }
