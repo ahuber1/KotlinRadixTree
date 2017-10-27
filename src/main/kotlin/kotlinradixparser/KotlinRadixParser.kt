@@ -1,18 +1,19 @@
 package kotlinradixparser
 
 import kotlinradixtree.KRadixTree
+import kotlinradixtree.format
 import kotlinradixtree.readFileLazily
 import java.io.File
 import java.util.*
+import kotlin.collections.HashMap
+
+fun String.radixParse(onResultsFound: (Array<KotlinRadixParserResult>) -> Boolean) = KotlinRadixParser().parse(this, onResultsFound)
 
 data class KotlinRadixParserResult(val string: String, val wasOnRecord: Boolean)
 
-fun String.radixParse() : Iterable<Iterable<KotlinRadixParserResult>> = KotlinRadixParser(this).parse()
-
-private class KotlinRadixParser(string: String) {
-
-    private val string: String
-    private var maximumNumberOfUnknownWords: Int? = null
+private class KotlinRadixParser {
+    private val frequencyMap = HashMap<KotlinRadixParserResult, Int>()
+    private var lengthOfLongestWord = Int.MIN_VALUE
     private val radixTree: KRadixTree by lazy {
         println("Loading Radix Tree...")
         val radixTree = KRadixTree()
@@ -22,79 +23,101 @@ private class KotlinRadixParser(string: String) {
             if (word.isNotEmpty()) {
                 println("Adding $word")
                 radixTree.add(word)
+
+                if (word.length > lengthOfLongestWord)
+                    lengthOfLongestWord = word.length
             }
 
         }
         return@lazy radixTree
     }
 
-    init {
-        this.string = string.filter { !it.isWhitespace() }.toLowerCase()
-    }
+    fun parse(string: String, onResultsFound: (Array<KotlinRadixParserResult>) -> Boolean) =
+            parse(string, 0, LinkedList(), onResultsFound)
 
-    fun parse() : Iterable<Iterable<KotlinRadixParserResult>> = parse(string, 0, 0).sortedBy { it.countKnownWords() }
+    private fun parse(string: String,
+                      startIndex: Int,
+                      results: LinkedList<KotlinRadixParserResult>,
+                      onResultsFound: (Array<KotlinRadixParserResult>) -> Boolean) : Boolean {
+        println("${((startIndex.toDouble() * 100.0) / string.length.toDouble()).format(2)}%")
 
-    private fun parse(string: String, startIndex: Int, numberOfUnknownWords: Int) : LinkedList<LinkedList<KotlinRadixParserResult>> {
-        val results = getKotlinRadixParserResultsForStringStartingAtIndex(string, startIndex)
-        val returnVal = LinkedList<LinkedList<KotlinRadixParserResult>>()
+        var continueLooking = true
+        val parserResults = getKotlinRadixParserResultsForStringStartingAtIndex(string, startIndex)
 
-        if (results.any()) {
-            for (result in results) {
-                println((0..startIndex).joinToString("") { " " } + result)
+        if (parserResults.none())
+            return onResultsFound(results.toTypedArray())
 
-                if (maximumNumberOfUnknownWords != null && !result.wasOnRecord && numberOfUnknownWords + 1 > maximumNumberOfUnknownWords!!) {
-                    continue
-                }
-
-                val newNumberOfUnknownWords = numberOfUnknownWords + (if (result.wasOnRecord) 0 else 1)
-                val subresults = parse(string, startIndex + result.string.length, newNumberOfUnknownWords)
-
-                if (subresults.any()) {
-                    for (subresult in subresults) {
-                        subresult.addFirst(result)
-                    }
-
-                    returnVal.addAll(subresults)
-                }
-            }
-        }
-        else if (maximumNumberOfUnknownWords == null || numberOfUnknownWords > (maximumNumberOfUnknownWords ?: Int.MIN_VALUE)) {
-            maximumNumberOfUnknownWords = numberOfUnknownWords
+        for (parserResult in parserResults) {
+            frequencyMap[parserResult] = (frequencyMap[parserResult] ?: 0) + 1
         }
 
-        return returnVal
+        val sortedParserResults = parserResults.groupBy { frequencyMap[it]!! }
+                .map { it.value.sortedByDescending { it.string.length } }.flatten()
+
+        for (parserResult in sortedParserResults) {
+            if (!continueLooking)
+                return false
+
+            results.addLast(parserResult)
+            continueLooking = parse(string, startIndex + parserResult.string.length, results, onResultsFound)
+            results.removeLast()
+        }
+
+        return continueLooking
     }
 
     private fun getKotlinRadixParserResultsForStringStartingAtIndex(string: String, startIndex: Int) : Iterable<KotlinRadixParserResult> {
-        // Progressively make longer and longer strings, and only put the ones that are in the KRadixTree into results
-        val results = (startIndex..string.length).mapLazy { string.substring(startIndex, it) }
-                .filterLazy { !it.isEmpty() && it in radixTree }
+        val results = getKotlinRadixParserResultsForStringStartingAtIndex(string, startIndex, false)
 
-        if (results.any())
+        if (results.isNotEmpty())
             return results.sortedByDescending { it.length }.mapLazy { KotlinRadixParserResult(it, true) }
 
-        val list = mutableListOf<KotlinRadixParserResult>()
+        for (i in (startIndex + 1)..string.length) {
+            if (results.isNotEmpty())
+                continue
 
-        for (left in (startIndex + 1)..string.length) {
-            for (right in (left + 1)..string.length) {
-                var substring = string.substring(left, right)
+            val list = getKotlinRadixParserResultsForStringStartingAtIndex(string, i, true)
 
-                if (substring.isEmpty())
-                    continue
-
-                if (substring in radixTree) {
-                    substring = string.substring(startIndex, left)
-
-                    if (substring.isNotEmpty()) {
-                        list.add(KotlinRadixParserResult(substring, false))
-                        return list
-                    }
-                }
+            if (list.isNotEmpty()) {
+                results.addLast(list.first)
             }
         }
 
-        return list
+        return results.mapLazy { KotlinRadixParserResult(it, false) }
+    }
+
+    private fun getKotlinRadixParserResultsForStringStartingAtIndex(string: String,
+                                                                    startIndex: Int,
+                                                                    stopOnFirstMatch: Boolean): LinkedList<String> {
+
+        // Progressively make longer and longer strings, and only put the ones that are in the KRadixTree into results
+        var stopLooking = false
+        var children: Iterable<String>? = null
+        val results = LinkedList<String>()
+
+        for (i in (startIndex + 1)..string.length) {
+            if (i == (startIndex + lengthOfLongestWord) && results.isEmpty())
+                stopLooking = true
+
+            if (stopLooking)
+                continue
+
+            var substring = string.substring(startIndex, i)
+            val (inTree, iterable) = radixTree.containsDetailed(substring)
+
+            if (inTree) {
+                children = iterable
+                results.addLast(substring)
+
+                if (stopOnFirstMatch)
+                    stopLooking = true
+            } else {
+                val lastItem = results.lastOrNull() ?: continue
+                substring = substring.substring(lastItem.length, substring.length)
+                children = children?.toList()
+                stopLooking = children?.none { it.startsWith(substring) } ?: false
+            }
+        }
+        return results
     }
 }
-
-private fun Iterable<KotlinRadixParserResult>.countKnownWords() = this.count { it.wasOnRecord }

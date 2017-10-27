@@ -1,14 +1,25 @@
 package kotlinradixtree
 
-import org.testng.Assert.*
-import org.testng.annotations.Test
 import java.io.File
+import java.io.FileInputStream
+import java.io.InputStreamReader
 import java.util.*
 
 fun File.readFileLazily(action: (String) -> Unit) {
     Scanner(this).use {
         while (it.hasNext()) {
             action(it.nextLine())
+        }
+    }
+}
+
+fun File.readFileLazilyCharacterByCharacter(action: (Char) -> Unit) {
+    InputStreamReader(FileInputStream(this)).use {
+        var c = it.read()
+
+        while (c != -1) {
+            action.invoke(c.toChar())
+            c = it.read()
         }
     }
 }

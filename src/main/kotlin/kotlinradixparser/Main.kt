@@ -1,12 +1,38 @@
 package kotlinradixparser;
 
+import kotlinradixtree.readFileLazilyCharacterByCharacter
+import java.io.File
+import kotlin.system.measureTimeMillis
+
 fun main(args: Array<String>) {
-    for (list in ".the quick brown fox jumped over the lazy sheep dog".radixParse()) {
-        println("Result ===========================================================")
-        for (kotlinRadixParserResult in list) {
-            println(kotlinRadixParserResult)
-            Thread.sleep(1500)
+    val time = measureTimeMillis {
+//        println("Reading file...")
+//        val content = File("test_files/shakespeare-romeo.txt").readText().toLowerCase()
+//        println("File read!")
+
+        println("Reading file...")
+        val buffer = StringBuffer()
+
+        File("test_files/shakespeare-romeo.txt").readFileLazilyCharacterByCharacter {
+            if (!it.isWhitespace()) {
+                print(it)
+                buffer.append(it.toLowerCase())
+            }
         }
-        println("==================================================================")
+
+        println("File read!")
+
+        val content = buffer.toString()
+
+        content.radixParse {
+            for (kotlinRadixParserResult in it) {
+                println(kotlinRadixParserResult)
+            }
+            return@radixParse false
+        }
     }
+
+    val seconds = time.toDouble() / 1000.0
+    println("$seconds seconds")
+
 }

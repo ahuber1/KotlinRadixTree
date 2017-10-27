@@ -1,5 +1,6 @@
 package kotlinradixtree
 
+import kotlinradixparser.mapLazy
 import org.testng.Assert.*
 import org.testng.annotations.Test
 import java.util.*
@@ -17,6 +18,8 @@ class KRadixTree {
     }
 
     operator fun contains(string: String) : Boolean = root.contains(string)
+
+    fun containsDetailed(string: String): Pair<Boolean, Iterable<String>> = root.containsDetailed(string)
 
     fun remove(string: String) : Boolean {        
         if (root.remove(string)) {
@@ -56,11 +59,13 @@ class KRadixTree {
 
         fun childrenAreEmpty() = children.isEmpty()
 
-        operator fun contains(string: String): Boolean {
+        operator fun contains(string: String): Boolean = containsDetailed(string).first
+
+        fun containsDetailed(string: String): Pair<Boolean, Iterable<String>> {
             if (string.isEmpty())
-                return false // empty strings cannot be added into the radix tree
+                return Pair(false, emptyList()) // empty strings cannot be added into the radix tree
             if (string.toCharArray().any { it.isWhitespace() || it.isUpperCase() } )
-                return false // cannot have characters with whitespace or with uppercase letters
+                return Pair(false, emptyList()) // cannot have characters with whitespace or with uppercase letters
 
             return contains(this, string)
         }
@@ -143,18 +148,22 @@ class KRadixTree {
                 return KRadixTreeStringComparisonResult(shareString, differString)
             }
 
-            private fun contains(node: KRadixTreeNode, str: String) : Boolean {
-                val child = getChildContainingLongestSharedPrefix(node, str) ?: return false // not found
+            private fun contains(node: KRadixTreeNode, str: String) : Pair<Boolean, Iterable<String>> {
+                val child = getChildContainingLongestSharedPrefix(node, str) ?: return Pair(false, emptyList()) // not found
                 val result = compareStringsWithSharedPrefix(child.string!!, str)
 
                 if (child.string!! == result.prefixStringsShare) {
-                    if (result.suffixWhereStringsDiffer.isEmpty())
-                        return child.endOfWord
+                    if (result.suffixWhereStringsDiffer.isEmpty()) {
+                        return if (child.endOfWord)
+                            Pair(true, child.children.mapLazy { it.string!! })
+                        else
+                            Pair(false, emptyList())
+                    }
 
                     return contains(child, result.suffixWhereStringsDiffer)
                 }
 
-                return false
+                return Pair(false, emptyList())
             }
 
             private fun getChildContainingLongestSharedPrefix(node: KRadixTreeNode, string: String) : KRadixTreeNode? {
