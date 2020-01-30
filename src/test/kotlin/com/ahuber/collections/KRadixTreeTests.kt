@@ -1,4 +1,6 @@
-import kotlinradixtree.*
+package com.ahuber.collections
+
+import com.ahuber.utils.format
 import org.testng.Assert
 import org.testng.annotations.Test
 import java.io.File
@@ -9,15 +11,16 @@ internal fun testComplexInsertionWithShuffle() {
     val fileName = "test_files/words.txt"
     val numberOfLists = 10
     println("Shuffling lines in \"$fileName\" 10 times")
-    val shuffledLists = List(numberOfLists) { shuffle(File(fileName).readLines().toMutableList()) }
+    val lists = List(numberOfLists) { File(fileName).readLines().toMutableList() }
 
-    for ((index, shuffledList) in shuffledLists.withIndex()) {
+    for ((index, shuffledList) in lists.withIndex()) {
+        shuffledList.shuffle()
         runTestWithWords(shuffledList, tree, index + 1, numberOfLists)
     }
 }
 
 @Test
-internal fun foo() {
+internal fun testWithWords() {
     val words =  """|scratchback
                         |passion-flower
                         |woleai
@@ -107,9 +110,9 @@ private fun runTestWithWords(list: List<String>, tree: KRadixTree, listNumber: I
         val word = item.trim().toLowerCase()
 
         if (word.isNotEmpty()) {
+            println("Adding $word...")
             tree.add(word)
             val percentComplete = ((stepsComplete * 100.0) / stepsToComplete)
-            //println("[$listNumber of $numberOfLists - ${percentComplete.format(2)}%] Added $word")
             Assert.assertTrue(word in tree)
             assert(tree.size - size == 1)
             size = tree.size
@@ -141,5 +144,5 @@ private fun runTestWithWords(list: List<String>, tree: KRadixTree, listNumber: I
         }
     }
 
-    assert(tree.childrenAreEmpty())
+    assert(tree.size > 0)
 }
