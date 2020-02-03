@@ -1,4 +1,4 @@
-package com.ahuber.prefix
+package com.ahuber.collections
 
 import com.ahuber.utils.*
 import java.util.*
