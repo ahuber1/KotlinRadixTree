@@ -13,6 +13,3 @@ inline fun <T : R, R> Option<T>.mapIfNone(block: () -> R) : R {
         is Option.None -> block()
     }
 }
-
-
-
