@@ -7,17 +7,22 @@ version '1.0-SNAPSHOT'
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 dependencies {
     implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
     compile 'org.jetbrains:annotations:17.0.0'
     compile group: 'org.testng', name: 'testng', version: '6.9.10'
-    testCompile group: 'org.testng', name: 'testng', version: '6.9.10'
+    compile 'ch.qos.logback:logback-core:1.2.3'
+    compile 'ch.qos.logback:logback-classic:1.2.3'
+    testCompile 'org.slf4j:slf4j-api:1.7.30'
+    testCompile group: 'org.jetbrains.kotlin', name: 'kotlin-test-junit5', version: '1.3.61'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.3.1'
 }
 
 test {
-    useTestNG()
+    useJUnitPlatform()
 
     testLogging {
         showStandardStreams = true

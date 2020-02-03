@@ -14,10 +14,5 @@ inline fun <T : R, R> Option<T>.mapIfNone(block: () -> R) : R {
     }
 }
 
-inline fun <T> Option<T>.ifSome(block: (T) -> Unit) {
-    val value = (this as? Option.Some)?.value ?: return
-    block(value)
-}
-
 
 
