@@ -6,19 +6,22 @@ import com.ahuber.utils.halveRight
 import com.ahuber.utils.middle
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.collections.HashMap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.test.fail
 
 class KRadixTreeTests {
+    enum class Direction { LR, RL }
+
     data class SizedSequence<T>(val sequence: Sequence<T>, val size: Int): Sequence<T> {
         override fun iterator(): Iterator<T> = sequence.iterator()
     }
 
     @Test
     fun `test with words`() {
-        val words = getWords()
+        val words = getWords(Direction.LR)
         val tree = KRadixTree()
         val targetWord = "abdications"
         var targetWordAdded = false
@@ -39,9 +42,11 @@ class KRadixTreeTests {
 
             assertEquals(index + 1, tree.size)
         }
+
+
     }
 
-    private fun getWords(): SizedSequence<String> {
+    private fun getWords(direction: Direction): SizedSequence<String> {
         val path = "words.txt"
         val file = getResourceAsFile(path) ?: fail("Unable to get resource $path")
         var words: MutableList<String?> = file.readText()
@@ -53,66 +58,57 @@ class KRadixTreeTests {
                 .toMutableList()
 
         val sequence = sequence<String> {
-            var leftRange: IntRange? = null
-            var rightRange: IntRange? = null
-
             while (true) {
-                if (leftRange == null || rightRange == null) {
-                    words = words.filterNotNullTo(ArrayList())
-                    leftRange = null
-                    rightRange = null
-                }
+                val indices = words.generateIndices(direction)
 
-                leftRange = when (leftRange) {
-                    null -> words.indices.halveLeft()
-                    else -> leftRange.halveLeft()
-                }
-
-                rightRange = when (rightRange) {
-                    null -> words.indices.halveRight()
-                    else -> rightRange.halveRight()
-                }
-
-                if (leftRange == null && rightRange == null) {
+                if (indices.isEmpty()) {
                     break
                 }
 
-                val leftValue = when (val leftMiddle = leftRange?.middle) {
-                    null -> null
-                    else -> words[leftMiddle].also { words[leftMiddle] = null }
+                for (index in indices) {
+                    val word = words[index]
+                    words[index] = null
+
+                    if (word != null) {
+                        yield(word)
+                    }
                 }
 
-                val rightValue = when (val rightMiddle = rightRange?.middle) {
-                    null -> null
-                    else -> words[rightMiddle].also { words[rightMiddle] = null }
-                }
-
-                if (leftValue != null) {
-                    yield(leftValue)
-                }
-
-                if (rightValue != null) {
-                    yield(rightValue)
-                }
-            }
-
-            for (word in words.filterNotNull()) {
-                yield(word)
+                words = words.filterNotNullTo(ArrayList())
             }
         }
 
         return SizedSequence(sequence, words.size)
     }
 
-    private fun generateIndices(range: IntRange, indices: MutableMap<Int, SortedSet<Int>>, level: Int) {
-        val set = indices.compute(level) { _, value -> value ?: TreeSet() }
-        check(set != null) { "Something terrible happened." }
-        set.add(range.middle)
+    private fun <T> List<T>.generateIndices(direction: Direction): List<Int> {
+        fun generateIndices(range: IntRange, indices: MutableMap<Int, SortedSet<Int>>, level: Int, direction: Direction) {
+            val set = indices.compute(level) { _, value -> value ?: TreeSet() }
+            check(set != null)
+            set.add(range.middle)
 
-        val leftRange = range.halveLeft()
-        val rightRange = range.halveRight()
+            val leftRange = range.halveLeft()
+            val rightRange = range.halveRight()
 
-        if (leftRange != null) generateIndices(leftRange, indices, level + 1)
-        if (rightRange != null) generateIndices(rightRange, indices, level + 1)
+            when (direction) {
+                Direction.LR -> {
+                    if (leftRange != null) generateIndices(leftRange, indices, level + 1, direction)
+                    if (rightRange != null) generateIndices(rightRange, indices, level + 1, direction)
+                }
+                Direction.RL -> {
+                    if (rightRange != null) generateIndices(rightRange, indices, level + 1, direction)
+                    if (leftRange != null) generateIndices(leftRange, indices, level + 1, direction)
+                }
+            }
+        }
+
+        if (this.isEmpty()) {
+            return emptyList()
+        }
+
+        return HashMap<Int, SortedSet<Int>>().let { map ->
+            generateIndices(this.indices, map, 0, direction)
+            map.asSequence().sortedBy { it.key }.flatMap { it.value.asSequence() }.distinct().toList()
+        }
     }
 }
