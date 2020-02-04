@@ -384,8 +384,8 @@ class KRadixTree : MutableSet<String> {
             logger.debug("Trimmed string is \"$trimmedString\"")
 
             return when {
-                trimmedString.isEmpty() -> {
-                    logger.debug("Trimmed string is empty.")
+                trimmedString.isEmpty() && diffResult.remainder.isEmpty() -> {
+                    logger.debug("Trimmed string and remainder are empty.")
                     logger.debug("child.endOfWord = ${child.endOfWord}")
                     val wasEndOfWord = child.endOfWord
 
@@ -409,14 +409,14 @@ class KRadixTree : MutableSet<String> {
             check(trimmedString != null) { "Something terrible happened" }
 
             val previousEndOfWord = child.endOfWord
-            child.string = diffResult.sharedPrefix
-            child.endOfWord = false
-
             val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord)
             val newChild2 = Node.Child(trimmedString, true)
-            newChild1?.children = child.children
 
+            newChild1?.children = child.children
+            child.string = diffResult.sharedPrefix
+            child.endOfWord = newChild2 == null
             child.children = LinkedList()
+
             if (newChild1 != null) child.children.add(newChild1)
             if (newChild2 != null) child.children.add(newChild2)
 
