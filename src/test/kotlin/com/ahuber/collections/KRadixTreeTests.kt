@@ -4,6 +4,8 @@ import com.ahuber.test.utils.getResourceAsFile
 import com.ahuber.utils.halveLeft
 import com.ahuber.utils.halveRight
 import com.ahuber.utils.middle
+import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -55,8 +57,10 @@ class KRadixTreeTests {
             var rightRange: IntRange? = null
 
             while (true) {
-                if (leftRange == null && rightRange == null) {
+                if (leftRange == null || rightRange == null) {
                     words = words.filterNotNullTo(ArrayList())
+                    leftRange = null
+                    rightRange = null
                 }
 
                 leftRange = when (leftRange) {
@@ -98,5 +102,17 @@ class KRadixTreeTests {
         }
 
         return SizedSequence(sequence, words.size)
+    }
+
+    private fun generateIndices(range: IntRange, indices: MutableMap<Int, SortedSet<Int>>, level: Int) {
+        val set = indices.compute(level) { _, value -> value ?: TreeSet() }
+        check(set != null) { "Something terrible happened." }
+        set.add(range.middle)
+
+        val leftRange = range.halveLeft()
+        val rightRange = range.halveRight()
+
+        if (leftRange != null) generateIndices(leftRange, indices, level + 1)
+        if (rightRange != null) generateIndices(rightRange, indices, level + 1)
     }
 }
