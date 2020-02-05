@@ -7,10 +7,9 @@ import com.ahuber.utils.middle
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertTrue
-import kotlin.test.fail
+import kotlin.test.*
+
+typealias TestWithWordsBlock = (index: Int, word: String, set: MutableSet<String>) -> Unit
 
 class KRadixTreeTests {
     enum class Direction { LR, RL }
@@ -21,29 +20,43 @@ class KRadixTreeTests {
 
     @Test
     fun `test with words`() {
-        val words = getWords(Direction.LR)
-        val tree = KRadixTree()
-        val targetWord = "abdications"
-        var targetWordAdded = false
+        addThenRemove(Direction.LR)
+        addThenRemove(Direction.RL)
+    }
 
-        for ((index, word) in words.withIndex()) {
-            println("[${index + 1}/${words.size}] $word")
+    private val Direction.otherDirection get() = when (this) {
+        Direction.LR -> Direction.RL
+        Direction.RL -> Direction.LR
+    }
 
-            if (targetWord in tree && !targetWordAdded) {
-                fail("Something terrible happened.")
-            }
+    private fun addThenRemove(initialDirection: Direction) {
+        var words = getWords(initialDirection)
+        val sets: Array<MutableSet<String>> = arrayOf(TreeSet(), KRadixTree())
 
-            assertTrue(tree.add(word))
-            assertTrue(word in tree)
-
-            if (targetWord == word) {
-                targetWordAdded = true
-            }
-
-            assertEquals(index + 1, tree.size)
+        iterateThroughWordsAndSets(words, sets) { index, word, set ->
+            assertTrue(set.add(word))
+            assertTrue(word in set)
+            assertEquals(index + 1, set.size)
         }
 
+        words = getWords(initialDirection.otherDirection)
+        val initialSize = words.size
 
+        iterateThroughWordsAndSets(words, sets) { index, word, set ->
+            println("[${index + 1}/${words.size}] $word: Removing elements from a ${set.javaClass.typeName}")
+            assertTrue(set.remove(word))
+            assertFalse(word in set)
+            assertEquals(initialSize - index - 1, set.size)
+        }
+    }
+
+    private inline fun iterateThroughWordsAndSets(words: SizedSequence<String>,
+            sets: Array<MutableSet<String>>, block: TestWithWordsBlock) {
+        for ((index, word) in words.withIndex()) {
+            for (set in sets) {
+                block(index, word, set)
+            }
+        }
     }
 
     private fun getWords(direction: Direction): SizedSequence<String> {
@@ -90,25 +103,22 @@ class KRadixTreeTests {
             val leftRange = range.halveLeft()
             val rightRange = range.halveRight()
 
-            when (direction) {
-                Direction.LR -> {
-                    if (leftRange != null) generateIndices(leftRange, indices, level + 1, direction)
-                    if (rightRange != null) generateIndices(rightRange, indices, level + 1, direction)
-                }
-                Direction.RL -> {
-                    if (rightRange != null) generateIndices(rightRange, indices, level + 1, direction)
-                    if (leftRange != null) generateIndices(leftRange, indices, level + 1, direction)
-                }
+            val (first, second) = when (direction) {
+                Direction.LR -> leftRange to rightRange
+                Direction.RL -> rightRange to leftRange
             }
+
+            if (first != null) generateIndices(first, indices, level + 1, direction)
+            if (second != null) generateIndices(second, indices, level + 1, direction)
         }
 
-        if (this.isEmpty()) {
-            return emptyList()
-        }
-
-        return HashMap<Int, SortedSet<Int>>().let { map ->
-            generateIndices(this.indices, map, 0, direction)
-            map.asSequence().sortedBy { it.key }.flatMap { it.value.asSequence() }.distinct().toList()
+        return when (this.isEmpty()) {
+            true -> emptyList()
+            false -> {
+                val map = HashMap<Int, SortedSet<Int>>()
+                generateIndices(this.indices, map, 0, direction)
+                map.asSequence().sortedBy { it.key }.flatMap { it.value.asSequence() }.distinct().toList()
+            }
         }
     }
 }

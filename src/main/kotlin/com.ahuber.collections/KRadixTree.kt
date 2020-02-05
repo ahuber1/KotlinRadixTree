@@ -6,28 +6,14 @@ import kotlin.NoSuchElementException
 import kotlin.collections.HashSet
 
 class KRadixTree : MutableSet<String> {
-    private val logger = this.getLogger()
     private val root = Node.Root()
     private lateinit var version: UUID
 
     override var size = -1
         private set(value) {
-            logger.debug("'size' setter called.")
-
-            if (field == value) {
-                logger.debug("Not updating 'size'. No change in value.")
-                return
-            }
-
-            logger.debug("Changing value from $field to $value")
+            if (field == value) return
             field = value
-
-            version = UUID.randomUUID().also {
-                when {
-                    this::version.isInitialized -> logger.debug("Changing version from $version to $it")
-                    else -> logger.debug("Initializing version to $it")
-                }
-            }
+            version = UUID.randomUUID()
         }
 
     init {
@@ -35,30 +21,18 @@ class KRadixTree : MutableSet<String> {
     }
 
     override fun add(element: String): Boolean {
-        logger.info("Adding '$element'")
         val string = element.normalize {
             "Cannot add a string with whitespace characters. String was ${element.withQuotationMarks}"
         }
 
         val successful = add(root, string)
-
-        if (successful) {
-            logger.info("Adding '$element' was successful. Incrementing size.")
-            size++
-        } else {
-            logger.info("Adding '$element' was unsuccessful.")
-        }
-
+        if (successful) size++
         return successful
     }
 
-    override fun addAll(elements: Collection<String>): Boolean {
-        logger.info("Adding ${elements.size} elements in 'addAll'")
-        return elements.fold { add(it) }.also { logger.debug("${elements.size} elements were added in 'addAll'") }
-    }
+    override fun addAll(elements: Collection<String>): Boolean = elements.fold { add(it) }
 
     override fun clear() {
-        logger.info("Clearing $size elements from the tree.")
         root.children.clear()
         size = 0
     }
@@ -66,52 +40,19 @@ class KRadixTree : MutableSet<String> {
     override fun iterator(): MutableIterator<String> = KRadixTreeIterator(this)
 
     override fun remove(element: String): Boolean {
-        logger.info("Removing '$element'")
         val string = element.catchInvalidInputString { return false }
-        val successful = remove(root, string)
-        if (successful) {
-            logger.info("Removing '$element' was successful.")
-            size--
-        } else {
-            logger.info("Removing '$element' was unsuccessful.")
-        }
+        val successful = remove(null, root, string)
+        if (successful) size--
         return successful
     }
 
-    override fun removeAll(elements: Collection<String>): Boolean {
-        logger.info("Removing ${elements.size} elements in 'removeAll'")
-        return elements.fold { remove(it) }
-                .also { logger.info("${elements.size} elements were removed in 'removeAll'") }
-    }
+    override fun removeAll(elements: Collection<String>): Boolean = elements.fold { remove(it) }
 
-    override fun retainAll(elements: Collection<String>): Boolean {
-        logger.info("Retaining ${elements.size} in 'retainAll'")
-        return this.filter { it !in elements }.fold { remove(it) }
-                .also {logger.info("Retained ${elements.size} in 'retainAll'") }
-    }
+    override fun retainAll(elements: Collection<String>): Boolean = this.filter { it !in elements }.fold { remove(it) }
 
-    override fun contains(element: String): Boolean {
-        logger.info("Checking to see if '$element' is in this tree.")
-        return contains(root, element.catchInvalidInputString { return false } )
-                .also {
-                    val string = if (it) "contains" else "does not contain"
-                    logger.info("The tree $string '$element'")
-                }
-    }
+    override fun contains(element: String): Boolean = contains(root, element.catchInvalidInputString { return false } )
 
-    override fun containsAll(elements: Collection<String>): Boolean {
-        logger.info("Checking if this tree contains ${elements.size} elements in 'containsAll'")
-        return elements.all { it in this }.also {
-            if (it) {
-                logger.info("This tree contains all ${elements.size} elements in the provided collection.")
-            }
-            else {
-                logger.info("This tree does not contain all ${elements.size} elements in the provided collection.")
-            }
-
-            logger.info("Returning $it from 'containsAll'")
-        }
-    }
+    override fun containsAll(elements: Collection<String>): Boolean = elements.all { it in this }
 
     override fun isEmpty(): Boolean = size == 0
 
@@ -140,6 +81,7 @@ class KRadixTree : MutableSet<String> {
             }
         }
 
+        var descendantCount = 0
         var children = LinkedList<Child>()
 
         final override fun toString(): String {
@@ -162,7 +104,6 @@ class KRadixTree : MutableSet<String> {
     }
 
     private class KRadixTreeIterator(private val tree: KRadixTree): MutableIterator<String> {
-        private val logger = this.getLogger()
         private val ancestors = Stack<NodeWrapper>()
         private val returnedWords = HashSet<String>()
         private var next: String? = null
@@ -170,9 +111,7 @@ class KRadixTree : MutableSet<String> {
         private var cachedVersion = tree.version
 
         init {
-            logger.debug("Started initialization.")
             invalidate()
-            logger.debug("Ended initialization.")
         }
 
         private val currentWord: String?
@@ -181,31 +120,19 @@ class KRadixTree : MutableSet<String> {
                     .reverse()
                     .toString()
                     .let { if (it.isEmpty()) null else it }
-                    .also { logger.debug("'currentWord' is $it") }
 
-        private inline val wasInvalidated get() =
-            (cachedVersion != tree.version).also { logger.debug("'wasInvalidated' is $it") }
+        private inline val wasInvalidated get() = cachedVersion != tree.version
 
         override fun hasNext(): Boolean {
-            logger.debug("'hasNext' was called.")
-
-            if (wasInvalidated) {
-                logger.debug("The tree was invalidated. Calling invalidate().")
-                invalidate()
-            }
+            if (wasInvalidated) invalidate()
 
             // If we have already computed the next value and it has not been returned via next(), return true
-            if (this.next != null && !nextRetrieved) {
-                logger.debug("We have already computed the next value, but it has not been returned via next().")
-                logger.debug("The cached value will be used, which means this iterator has the next element ready to go.")
-                return true
+            if (this.next != null && !nextRetrieved) return true
 
-            }
             // Otherwise, find the next item (if any) and return a Boolean indicating whether we were able to find
             // the next item in the iterator
             nextRetrieved = false
             var next: Node.Child?
-            logger.debug("Searching for next element.")
 
             do {
                 next = findNext()
@@ -213,29 +140,16 @@ class KRadixTree : MutableSet<String> {
 
 
             this.next = currentWord
-
-            logger.debug("The next word that will be returned in this iterator is '${this.next}'")
-
-            return (this.next != null).also {
-                when(it) {
-                    true -> logger.debug("Found the next value")
-                    false -> logger.debug("Did not find the next value")
-                }
-            }
+            return this.next != null
         }
 
         override fun next(): String = when (hasNext()) {
-            false -> {
-                logger.error("There is no element in the iterator!")
-                throw NoSuchElementException()
-            }
-            true -> when (val next = this.next) {
-                null -> {
-                    logger.error("Something terrible has happened...")
-                    throw NoSuchElementException() // Should never happen but added for Smart Cast
-                }
+            false -> throw NoSuchElementException()
+            true ->
+                // Should never happen but added for Smart Cast
+                when (val next = this.next) {
+                null -> throw NoSuchElementException()
                 else -> {
-                    logger.error("Retrieving next string in the iterator, that being '$next'")
                     nextRetrieved = true
                     returnedWords.add(next)
                     next
@@ -245,66 +159,36 @@ class KRadixTree : MutableSet<String> {
 
         override fun remove() {
             when (val next = this.next) {
-                null -> {
-                    logger.warn("Unable to remove item in iterator.")
-                    return
-                }
-                else -> {
-                    logger.warn("Removing '$next'")
-                    tree.remove(next)
-                }
+                null -> return
+                else -> tree.remove(next)
             }
         }
 
         private fun findNext(): Node.Child? {
             while (true) {
-                logger.debug("At top of loop in findNext()")
+                if (ancestors.isEmpty()) return null
 
-                if (ancestors.isEmpty()) {
-                    logger.debug("No more ancestors on record. All items have been iterated through. Returning null.")
-                    return null
-                }
-
-                logger.debug("Ancestor queue has ${ancestors.size} items")
-                logger.debug("Peeking item at head of ancestor queue.")
                 val children = ancestors.peek().children
 
                 if (children.isEmpty()) {
-                    logger.debug("There are children in the peeked ancestor.")
-                    logger.debug("Popping child and analyzing it.")
                     val child = ancestors.pop().node as? Node.Child
 
-                    if (child != null) {
-                        if (child.endOfWord) {
-                            logger.debug("Popped child represents the end of a word. Returning this child.")
-                            return child
-                        }
-                        else {
-                            logger.debug("Popped child represents only a part of a word. Continuing...")
-                        }
-                    }
-                    else {
-                        logger.debug("Popped child was the root node. Continuing...")
+                    if (child != null && child.endOfWord) {
+                        return child
                     }
 
                 }
-                else {
-                    logger.debug("There are no children in the peeked ancestor. Continuing...")
-                }
 
-                logger.debug("Adding child to ancestors.")
                 ancestors.push(children.poll().wrap())
             }
         }
 
         private fun invalidate() {
-            logger.debug("Invalidating...")
             ancestors.clear()
             ancestors.push(tree.root.wrap())
             next = null
             nextRetrieved = false
             cachedVersion = tree.version
-            logger.debug("Invalidation complete.")
         }
 
         private fun Node.wrap() = NodeWrapper(this)
@@ -315,8 +199,6 @@ class KRadixTree : MutableSet<String> {
     }
 
     companion object {
-        private val logger = this.getLogger()
-
         private inline fun String.normalize(lazyMessage: () -> String): String =
                 catchInvalidInputString { throw IllegalArgumentException(lazyMessage()) }
 
@@ -328,85 +210,57 @@ class KRadixTree : MutableSet<String> {
         }
 
         private fun add(node: Node, string: String): Boolean {
-            logger.debug("--------------------------------------------------------")
-            logger.debug("add(node = $node, string = \"$string\")")
 
             if (string.isEmpty()) {
-                logger.debug("String is empty")
                 return when (node) {
-                    is Node.Root -> {
-                        logger.debug("Current node is the root node. Returning false.")
-                        false
-                    }
+                    is Node.Root -> false
                     is Node.Child -> {
-                        logger.debug("Marking child node as the end of the word. Returning true")
                         node.endOfWord = true
                         true
                     }
                 }
             }
 
-            logger.debug("Looking for child...")
 
             val (child, diffResult) = findChild(node.children, string) ?:
                     return when (val child = Node.Child(string, true)) {
                         null -> throw IllegalStateException("Something terrible happened.")
                         else -> {
-                            logger.debug("Adding child and returning true")
                             node.children.add(child)
                             true
                         }
                     }
 
-            logger.debug("Found child")
-            logger.debug("child: $child")
-            logger.debug("diffResult: $diffResult")
 
             if (diffResult is DiffResult.Identical) {
                 return when(child.endOfWord) {
-                    true -> {
-                        logger.debug("Found identical string. Returning false to indicate the string is not new.")
-                        false
-                    }
+                    true -> false
                     false -> {
-                        logger.debug("Found identical string. However, node was not marked as the end of a word.")
                         child.endOfWord = true
-                        logger.debug("Node marked as end of word.")
                         true
                     }
                 }
             }
 
-            check(diffResult is DiffResult.Shared) { "Something terrible happened" }
+            check(diffResult is DiffResult.Shared)
 
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null) { "Something terrible happened" }
-            logger.debug("Trimmed string is \"$trimmedString\"")
 
             return when {
                 trimmedString.isEmpty() && diffResult.remainder.isEmpty() -> {
-                    logger.debug("Trimmed string and remainder are empty.")
-                    logger.debug("child.endOfWord = ${child.endOfWord}")
                     val wasEndOfWord = child.endOfWord
-
-                    logger.debug("Setting child.endOfWord to true")
                     child.endOfWord = true
-                    !wasEndOfWord.also { logger.debug("Returning $it") }
+                    !wasEndOfWord
                 }
-                child.string == diffResult.sharedPrefix -> {
-                    logger.debug("The child and the shared prefix are the same. Performing recursive call...")
-                    add(child, trimmedString)
-                }
+                child.string == diffResult.sharedPrefix -> add(child, trimmedString)
                 else -> split(child, diffResult, string)
             }
         }
 
         private fun split(child: Node.Child, diffResult: DiffResult.Shared, string: String): Boolean {
-            logger.debug("--------------------------------------------------------")
-            logger.debug("split(child = $child, diffResult = $diffResult, string = $string")
-
             val trimmedString = diffResult.removeSharedPrefix(string)
-            check(trimmedString != null) { "Something terrible happened" }
+            check(trimmedString != null)
 
             val previousEndOfWord = child.endOfWord
             val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord)
@@ -419,144 +273,43 @@ class KRadixTree : MutableSet<String> {
 
             if (newChild1 != null) child.children.add(newChild1)
             if (newChild2 != null) child.children.add(newChild2)
-
-            logger.debug("Child has been split.")
-            logger.debug("    child: $child")
-            logger.debug("newChild1: $newChild1")
-            logger.debug("newChild2: $newChild2")
-            logger.debug("Returning true.")
             return true
         }
 
-        private fun remove(node: Node, string: String): Boolean {
-            logger.debug("--------------------------------------------------------")
-            logger.debug("remove(node = $node, string = \"$string\")")
-            logger.debug("Looking for child...")
-            val (child, diffResult) = findChild(node.children, string)
-                    ?: return false.also { logger.debug("Returning null as child was not found.") }
-
-            logger.debug("Found child")
-            logger.debug("child: $child")
-            logger.debug("diffResult: $diffResult")
-
-            return when (diffResult) {
-                is DiffResult.Shared -> {
-                    logger.debug("The child and the target string share a common prefix. Performing recursive call...")
-                    val removalSuccessful = diffResult.removeSharedPrefix(string)?.let { remove(child, it) }
-                    check(removalSuccessful != null) { "Something terrible happened." }
-                    logger.debug("Returned from recursive call")
-
-                    if (node is Node.Child && node.children.size == 1 && !node.endOfWord) {
-                        logger.debug("Found an only child.")
-                        logger.debug("Node before absorbing only child: $node")
-                        val onlyChild = node.children.remove()
-                        node.string += onlyChild.string
-                        node.endOfWord = onlyChild.endOfWord
-                        node.children = onlyChild.children
-                        logger.debug("Node after absorbing only child: $node")
-                    }
-
-                    logger.debug("Returning result from recursive call, that being $removalSuccessful")
-                    removalSuccessful
-                }
-                else -> {
-                    logger.debug("Found match. Removing child and returning true.")
-                    node.children.remove(child)
-                    true
-                }
-            }
+        private fun remove(ancestor: Node?, node: Node, string: String): Boolean {
+            TODO()
         }
 
         private fun contains(node: Node, string: String): Boolean {
-            logger.debug("--------------------------------------------------------")
-            logger.debug("contains(node = $node, string = \"$string\")")
-
             if (string.isEmpty()) {
-                logger.debug("String is empty")
                 return when (node) {
-                    is Node.Root -> {
-                        logger.debug("Current node is the root node. Returning false.")
-                        false
-                    }
-                    is Node.Child -> {
-                        logger.debug("Current node is a child node. Returning ${node.endOfWord}")
-                        return node.endOfWord
-                    }
+                    is Node.Root -> false
+                    is Node.Child -> return node.endOfWord
                 }
             }
 
-            logger.debug("Looking for child...")
-            val result = findChild(node.children, string)
+            val (child, diffResult) = findChild(node.children, string) ?: return false
 
-            if (result == null) {
-                logger.debug("Could not find child.")
-                return false
-            }
+            if (diffResult is DiffResult.Identical) return child.endOfWord
 
-            val (child, diffResult) = result
-            logger.debug("Found child.")
-            logger.debug("child: $child")
-            logger.debug("diffResult: $diffResult")
-
-            if (diffResult is DiffResult.Identical) {
-                logger.debug("Found an identical match.")
-
-                when (child.endOfWord) {
-                    true -> logger.debug("Child represents the end of a word. Returning true.")
-                    false -> logger.debug("Child does not represent the end of a word. Returning false.")
-                }
-
-                return child.endOfWord
-            }
-
-            check(diffResult is DiffResult.Shared) { "Something terrible happened" }
+            check(diffResult is DiffResult.Shared)
             val trimmedString = diffResult.removeSharedPrefix(string)
-            check(trimmedString != null) { "Something terrible happened" }
-            logger.debug("Trimmed string is \"$trimmedString\"")
+            check(trimmedString != null)
 
-            if (trimmedString.isEmpty()) {
-                logger.debug("Trimmed string is empty.")
-
-                when (child.endOfWord) {
-                    true -> logger.debug("Child represents the end of a word. Returning true.")
-                    false -> logger.debug("Child does not represent the end of a word. Returning false.")
-                }
-
-                return child.endOfWord
+            return when {
+                trimmedString.isEmpty() -> child.endOfWord
+                else -> contains(child, trimmedString)
             }
-
-            logger.debug("Performing recursive call...")
-            return contains(child, trimmedString)
         }
 
         private fun findChild(children: Iterable<Node.Child>, string: String): Pair<Node.Child, DiffResult>? {
-            logger.debug("Searching for child...")
-
             for (child in children) {
-                logger.debug("Comparing \"${child.string}\" against \"$string\"")
                 val result = child.string.diffWith(string)
 
-                if (result is DiffResult.Identical || result is DiffResult.Shared) {
-                    logger.debug("Found match")
-                    logger.debug("child: $child")
-                    logger.debug("result: $result")
-                    return child to result
-                }
-
-                logger.debug("Didn't find match.")
+                if (result is DiffResult.Identical || result is DiffResult.Shared) return child to result
             }
 
-            logger.debug("Did not find child. Returning null.")
             return null
-        }
-
-        private fun constructPreOrderTraversalString(node: Node, builder: StringBuilder, level: Int) {
-            val indentation = "|---".repeat(level)
-            builder.appendln("$indentation$node")
-
-            for (child in node.children) {
-                constructPreOrderTraversalString(child, builder, level + 1)
-            }
         }
     }
 }
