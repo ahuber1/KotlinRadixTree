@@ -3,6 +3,7 @@ package com.ahuber.collections
 import com.ahuber.utils.*
 import java.util.*
 import kotlin.NoSuchElementException
+import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
 
 class KRadixTree : MutableSet<String> {
@@ -17,7 +18,7 @@ class KRadixTree : MutableSet<String> {
 
     override fun add(element: String): Boolean {
         val string = element.normalize {
-            "Cannot add a string with whitespace characters. String was ${element.withQuotationMarks}"
+            "Cannot add a string with whitespace characters. String was \"$element\""
         }
 
         val successful = add(null, root, string)
@@ -28,7 +29,7 @@ class KRadixTree : MutableSet<String> {
     override fun addAll(elements: Collection<String>): Boolean = elements.fold { add(it) }
 
     override fun clear() {
-        root.children.clear()
+        root.clearChildren()
         root.descendantCount = 0
         newVersion()
     }
@@ -60,33 +61,8 @@ class KRadixTree : MutableSet<String> {
     }
 
     private sealed class Node {
-        class Root : Node()
-
-        class Child private constructor(var string: String, var endOfWord: Boolean, descendantCount: Int = 0) : Node() {
-
-            init {
-                this.descendantCount = descendantCount
-            }
-
-            override fun equals(other: Any?): Boolean = when (super.equals(other)) {
-                false -> false
-                true -> when (val child = other as? Child) {
-                    null -> false
-                    else -> this.string == child.string && this.endOfWord == child.endOfWord
-                }
-            }
-
-            override fun hashCode(): Int = Objects.hash(super.hashCode(), string.hashCode())
-
-            companion object {
-                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
-                    return if (string.isEmpty() || descendantCount < 0) null else Child(string, endOfWord, descendantCount)
-                }
-            }
-        }
-
         var descendantCount = 0
-        var children = LinkedList<Child>()
+        protected var children = ArrayList<Child>()
 
         final override fun toString(): String {
             val prefix = when (this) {
@@ -105,6 +81,76 @@ class KRadixTree : MutableSet<String> {
         }
 
         override fun hashCode(): Int = children.hashCode()
+
+        fun addChild(child: Child) {
+            children.add(child)
+            children.sort()
+        }
+
+        fun removeChild(child: Child): Boolean {
+            val index = children.binarySearch { it.compareTo(child) }
+
+            return when {
+                index < 0 -> false
+                else -> {
+                    children.removeAt(index)
+                    true
+                }
+            }
+        }
+
+        fun clearChildren() = children.clear()
+
+        fun moveChildrenTo(other: Child) {
+            other.children = this.children
+            this.children = ArrayList()
+        }
+
+        fun copyChildrenTo(collection: MutableCollection<Child>) {
+            collection.addAll(children)
+        }
+
+        fun findChild(string: String): Pair<Child, DiffResult>? {
+            val index = children.binarySearch {
+                when (it.string.diffWith(string)) {
+                    is DiffResult.Identical, is DiffResult.Shared -> 0
+                    is DiffResult.Different -> it.string.compareTo(string)
+                }
+            }
+
+            return when (val child = children.getOrNull(index)) {
+                null -> null
+                else -> child to child.string.diffWith(string)
+            }
+        }
+
+        class Root : Node()
+        class Child private constructor(var string: String, var endOfWord: Boolean, descendantCount: Int = 0) : Node(), Comparable<Child> {
+
+            init {
+                this.descendantCount = descendantCount
+            }
+
+            override fun equals(other: Any?): Boolean = when (super.equals(other)) {
+                false -> false
+                true -> when (val child = other as? Child) {
+                    null -> false
+                    else -> this.string == child.string && this.endOfWord == child.endOfWord
+                }
+            }
+
+            override fun hashCode(): Int = Objects.hash(super.hashCode(), string.hashCode())
+
+            override fun compareTo(other: Child): Int {
+                return this.string.compareTo(other.string)
+            }
+
+            companion object {
+                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
+                    return if (string.isEmpty() || descendantCount < 0) null else Child(string, endOfWord, descendantCount)
+                }
+            }
+        }
     }
 
     private class KRadixTreeIterator(private val tree: KRadixTree): MutableIterator<String> {
@@ -198,7 +244,11 @@ class KRadixTree : MutableSet<String> {
         private fun Node.wrap() = NodeWrapper(this)
 
         data class NodeWrapper(val node: Node) {
-            val children: Queue<Node.Child> = LinkedList(node.children)
+            val children: Queue<Node.Child> = LinkedList()
+
+            init {
+                node.copyChildrenTo(children)
+            }
         }
     }
 
@@ -225,11 +275,11 @@ class KRadixTree : MutableSet<String> {
                 }
             }
 
-            val (child, diffResult) = findChild(node.children, string) ?:
+            val (child, diffResult) = node.findChild(string) ?:
                     return when (val child = Node.Child(string, true)) {
                         null -> throw IllegalStateException("Something terrible happened.")
                         else -> {
-                            node.children.add(child)
+                            node.addChild(child)
                             node.descendantCount++
                             true
                         }
@@ -287,19 +337,22 @@ class KRadixTree : MutableSet<String> {
             val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord, child.descendantCount)
             val newChild2 = Node.Child(trimmedString, true)
 
-            newChild1?.children = child.children
+            if (newChild1 != null) {
+                child.moveChildrenTo(newChild1)
+            }
+
             child.string = diffResult.sharedPrefix
             child.endOfWord = newChild2 == null
             child.descendantCount = 0
-            child.children = LinkedList()
+            child.clearChildren()
 
             if (newChild1 != null) {
-                child.children.add(newChild1)
+                child.addChild(newChild1)
                 child.descendantCount += newChild1.descendantCount + 1
             }
 
             if (newChild2 != null) {
-                child.children.add(newChild2)
+                child.addChild(newChild2)
                 child.descendantCount
                 child.descendantCount++
             }
@@ -319,7 +372,7 @@ class KRadixTree : MutableSet<String> {
                 }
             }
 
-            val (child, diffResult) = findChild(node.children, string) ?: return false
+            val (child, diffResult) = node.findChild(string) ?: return false
 
             if (diffResult is DiffResult.Identical) return child.endOfWord
 
@@ -331,16 +384,6 @@ class KRadixTree : MutableSet<String> {
                 trimmedString.isEmpty() -> child.endOfWord
                 else -> contains(child, trimmedString)
             }
-        }
-
-        private fun findChild(children: Iterable<Node.Child>, string: String): Pair<Node.Child, DiffResult>? {
-            for (child in children) {
-                val result = child.string.diffWith(string)
-
-                if (result is DiffResult.Identical || result is DiffResult.Shared) return child to result
-            }
-
-            return null
         }
     }
 }

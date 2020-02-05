@@ -9,13 +9,7 @@ inline val String.containsWhitespace: Boolean
 
 inline val Char.Companion.NULL_CHARACTER get() = '\u0000'
 
-inline val String.withQuotationMarks get() = "\"$this\""
-
-inline val Double.bd get() = BigDecimal(this)
-
-inline val Long.bd get() = BigDecimal(this)
-
-inline val Int.bd get() = BigDecimal(this)
+inline val Number.bd get() = BigDecimal(this.toDouble())
 
 fun String.toCharArrayWithFill(newLength: Int, fillerChar: Char = '\u0000') : CharArray =
         CharArray(newLength) { index -> if (index < this.length) this[index] else fillerChar }

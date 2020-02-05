@@ -5,6 +5,7 @@ import com.ahuber.utils.*
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import kotlin.collections.HashSet
 import kotlin.system.measureNanoTime
 import kotlin.test.*
 
@@ -30,7 +31,7 @@ class KRadixTreeTests {
 
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
-        val sets: Array<MutableSet<String>> = arrayOf(TreeSet(), KRadixTree())
+        val sets: Array<MutableSet<String>> = arrayOf(HashSet(), KRadixTree())
         val stringLength = "%,d".format(words.size).length
 
         var addDurationSum = 0.0.bd
@@ -45,20 +46,19 @@ class KRadixTreeTests {
                 indentation = ' '.repeat(prefix.length)
             }
 
-//            val addDuration = measureNanoTime { assertTrue(set.add(word)) }
-            val addDuration = measureNanoTime { set.addWor }
+            val addDuration = measureMillisWithResult { set.add(word) }.also { assertTrue(it.result) }.duration.toMillis()
 
             if (indentation != null) {
                 addDurationSum += addDuration.bd
-                println("%s Add took %,d nanoseconds to run.".format(indentation, addDuration))
+                println("%s Add took %,d milliseconds to run.".format(indentation, addDuration))
                 println("%s Add has averaged %,.2f nanoseconds so far.".format(indentation, addDurationSum / (index + 1).bd))
             }
 
-            val containsDuration = measureNanoTime { assertTrue(word in set) }
+            val containsDuration = measureMillisWithResult { word in set }.also { assertTrue(it.result) }.duration.toMillis()
 
             if (indentation != null) {
                 containsDurationSum += containsDuration.bd
-                println("%s Contains took %,d nanoseconds to run.".format(indentation, containsDuration))
+                println("%s Contains took %,d milliseconds to run.".format(indentation, containsDuration))
                 println("%s Contains has averaged %,.2f nanoseconds so far.".format(indentation, containsDurationSum / (index + 1).bd))
             }
 
