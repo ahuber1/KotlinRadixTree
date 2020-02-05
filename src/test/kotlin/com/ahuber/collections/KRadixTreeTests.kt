@@ -45,7 +45,8 @@ class KRadixTreeTests {
                 indentation = ' '.repeat(prefix.length)
             }
 
-            val addDuration = measureNanoTime { assertTrue(set.add(word)) }
+//            val addDuration = measureNanoTime { assertTrue(set.add(word)) }
+            val addDuration = measureNanoTime { set.addWor }
 
             if (indentation != null) {
                 addDurationSum += addDuration.bd
