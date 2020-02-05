@@ -1,12 +1,11 @@
 package com.ahuber.collections
 
 import com.ahuber.test.utils.getResourceAsFile
-import com.ahuber.utils.halveLeft
-import com.ahuber.utils.halveRight
-import com.ahuber.utils.middle
+import com.ahuber.utils.*
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
+import kotlin.system.measureNanoTime
 import kotlin.test.*
 
 typealias TestWithWordsBlock = (index: Int, word: String, set: MutableSet<String>) -> Unit
@@ -32,10 +31,36 @@ class KRadixTreeTests {
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
         val sets: Array<MutableSet<String>> = arrayOf(TreeSet(), KRadixTree())
+        val stringLength = "%,d".format(words.size).length
+
+        var addDurationSum = 0.0.bd
+        var containsDurationSum = 0.0.bd
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
-            assertTrue(set.add(word))
-            assertTrue(word in set)
+            var indentation: String? = null
+
+            if (set is KRadixTree) {
+                val prefix = "[%,${stringLength}d of %,${stringLength}d]".format(index + 1, words.size)
+                println("$prefix Adding elements...")
+                indentation = ' '.repeat(prefix.length)
+            }
+
+            val addDuration = measureNanoTime { assertTrue(set.add(word)) }
+
+            if (indentation != null) {
+                addDurationSum += addDuration.bd
+                println("%s Add took %,d nanoseconds to run.".format(indentation, addDuration))
+                println("%s Add has averaged %,.2f nanoseconds so far.".format(indentation, addDurationSum / (index + 1).bd))
+            }
+
+            val containsDuration = measureNanoTime { assertTrue(word in set) }
+
+            if (indentation != null) {
+                containsDurationSum += containsDuration.bd
+                println("%s Contains took %,d nanoseconds to run.".format(indentation, containsDuration))
+                println("%s Contains has averaged %,.2f nanoseconds so far.".format(indentation, containsDurationSum / (index + 1).bd))
+            }
+
             assertEquals(index + 1, set.size)
         }
 

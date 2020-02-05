@@ -9,15 +9,10 @@ class KRadixTree : MutableSet<String> {
     private val root = Node.Root()
     private lateinit var version: UUID
 
-    override var size = -1
-        private set(value) {
-            if (field == value) return
-            field = value
-            version = UUID.randomUUID()
-        }
+    override val size get() = root.descendantCount
 
     init {
-        size = 0 // Triggers the setter to run
+        newVersion()
     }
 
     override fun add(element: String): Boolean {
@@ -25,8 +20,8 @@ class KRadixTree : MutableSet<String> {
             "Cannot add a string with whitespace characters. String was ${element.withQuotationMarks}"
         }
 
-        val successful = add(root, string)
-        if (successful) size++
+        val successful = add(null, root, string)
+        if (successful) newVersion()
         return successful
     }
 
@@ -34,7 +29,8 @@ class KRadixTree : MutableSet<String> {
 
     override fun clear() {
         root.children.clear()
-        size = 0
+        root.descendantCount = 0
+        newVersion()
     }
 
     override fun iterator(): MutableIterator<String> = KRadixTreeIterator(this)
@@ -42,7 +38,7 @@ class KRadixTree : MutableSet<String> {
     override fun remove(element: String): Boolean {
         val string = element.catchInvalidInputString { return false }
         val successful = remove(null, root, string)
-        if (successful) size--
+        if (successful) newVersion()
         return successful
     }
 
@@ -59,10 +55,18 @@ class KRadixTree : MutableSet<String> {
     private inline fun Iterable<String>.fold(action: (String) -> Boolean): Boolean =
             this.fold(true) { result, string -> action(string) && result }
 
+    private fun newVersion() {
+        version = UUID.randomUUID()
+    }
+
     private sealed class Node {
         class Root : Node()
 
-        class Child private constructor(var string: String, var endOfWord: Boolean) : Node() {
+        class Child private constructor(var string: String, var endOfWord: Boolean, descendantCount: Int = 0) : Node() {
+
+            init {
+                this.descendantCount = descendantCount
+            }
 
             override fun equals(other: Any?): Boolean = when (super.equals(other)) {
                 false -> false
@@ -75,8 +79,8 @@ class KRadixTree : MutableSet<String> {
             override fun hashCode(): Int = Objects.hash(super.hashCode(), string.hashCode())
 
             companion object {
-                operator fun invoke(string: String, endOfWord: Boolean): Child? {
-                    return if (string.isEmpty()) null else Child(string, endOfWord)
+                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
+                    return if (string.isEmpty() || descendantCount < 0) null else Child(string, endOfWord, descendantCount)
                 }
             }
         }
@@ -90,7 +94,7 @@ class KRadixTree : MutableSet<String> {
                 is Child -> "Child(string = $string, endOfWord: $endOfWord, "
             }
             val childrenString = children.joinToString(", ") { it.string }
-            return prefix + "children = [$childrenString])"
+            return prefix + "descendantCount = $descendantCount, children = [$childrenString])"
         }
 
         override fun equals(other: Any?): Boolean {
@@ -209,24 +213,24 @@ class KRadixTree : MutableSet<String> {
             }
         }
 
-        private fun add(node: Node, string: String): Boolean {
-
+        private fun add(ancestor: Node?, node: Node, string: String): Boolean {
             if (string.isEmpty()) {
                 return when (node) {
                     is Node.Root -> false
                     is Node.Child -> {
                         node.endOfWord = true
+                        if (ancestor != null) ancestor.descendantCount++
                         true
                     }
                 }
             }
-
 
             val (child, diffResult) = findChild(node.children, string) ?:
                     return when (val child = Node.Child(string, true)) {
                         null -> throw IllegalStateException("Something terrible happened.")
                         else -> {
                             node.children.add(child)
+                            node.descendantCount++
                             true
                         }
                     }
@@ -237,13 +241,13 @@ class KRadixTree : MutableSet<String> {
                     true -> false
                     false -> {
                         child.endOfWord = true
+                        node.descendantCount++
                         true
                     }
                 }
             }
 
             check(diffResult is DiffResult.Shared)
-
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null) { "Something terrible happened" }
 
@@ -251,29 +255,56 @@ class KRadixTree : MutableSet<String> {
                 trimmedString.isEmpty() && diffResult.remainder.isEmpty() -> {
                     val wasEndOfWord = child.endOfWord
                     child.endOfWord = true
-                    !wasEndOfWord
+
+                    when (wasEndOfWord) {
+                        true -> false
+                        false -> {
+                            if (ancestor != null) ancestor.descendantCount++
+                            true
+                        }
+                    }
                 }
-                child.string == diffResult.sharedPrefix -> add(child, trimmedString)
-                else -> split(child, diffResult, string)
+                child.string == diffResult.sharedPrefix -> {
+                    val successful = add(node, child, trimmedString)
+                    if (successful) node.descendantCount++
+                    successful
+                }
+                else -> {
+                    val descendantCountDifference = split(child, diffResult, string)
+                    node.descendantCount += descendantCountDifference - 1
+                    true
+                }
             }
         }
 
-        private fun split(child: Node.Child, diffResult: DiffResult.Shared, string: String): Boolean {
+        private fun split(child: Node.Child, diffResult: DiffResult.Shared, string: String): Int {
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null)
 
             val previousEndOfWord = child.endOfWord
-            val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord)
+            val previousDescendantCount = child.descendantCount
+
+            val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord, child.descendantCount)
             val newChild2 = Node.Child(trimmedString, true)
 
             newChild1?.children = child.children
             child.string = diffResult.sharedPrefix
             child.endOfWord = newChild2 == null
+            child.descendantCount = 0
             child.children = LinkedList()
 
-            if (newChild1 != null) child.children.add(newChild1)
-            if (newChild2 != null) child.children.add(newChild2)
-            return true
+            if (newChild1 != null) {
+                child.children.add(newChild1)
+                child.descendantCount += newChild1.descendantCount + 1
+            }
+
+            if (newChild2 != null) {
+                child.children.add(newChild2)
+                child.descendantCount
+                child.descendantCount++
+            }
+
+            return child.descendantCount - previousDescendantCount
         }
 
         private fun remove(ancestor: Node?, node: Node, string: String): Boolean {

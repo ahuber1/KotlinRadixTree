@@ -2,6 +2,7 @@ package com.ahuber.utils
 
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
+import java.math.BigDecimal
 
 inline val String.containsWhitespace: Boolean
     get() = any { it.isWhitespace() }
@@ -9,6 +10,12 @@ inline val String.containsWhitespace: Boolean
 inline val Char.Companion.NULL_CHARACTER get() = '\u0000'
 
 inline val String.withQuotationMarks get() = "\"$this\""
+
+inline val Double.bd get() = BigDecimal(this)
+
+inline val Long.bd get() = BigDecimal(this)
+
+inline val Int.bd get() = BigDecimal(this)
 
 fun String.toCharArrayWithFill(newLength: Int, fillerChar: Char = '\u0000') : CharArray =
         CharArray(newLength) { index -> if (index < this.length) this[index] else fillerChar }
@@ -25,6 +32,8 @@ fun <T : Any> T.getLogger(): Logger = LoggerFactory.getLogger(this.javaClass)
 inline fun <reified T> getLogger(): Logger = LoggerFactory.getLogger(T::class.java)
 
 fun String.repeat(n: Int) = this.repeat<String>(n).joinToString("")
+
+fun Char.repeat(n: Int) = this.repeat<Char>(n).joinToString("")
 
 fun <T> T.repeat(n: Int) = when (n <= 0) {
     true -> emptySequence()
