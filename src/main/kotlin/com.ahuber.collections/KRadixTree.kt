@@ -373,6 +373,9 @@ class KRadixTree : MutableSet<String> {
             }
 
             check(diffResult is DiffResult.Shared)
+
+            if (diffResult.remainder.isNotEmpty()) return false
+
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null)
 
@@ -403,21 +406,24 @@ class KRadixTree : MutableSet<String> {
         private fun contains(node: Node, string: String): Boolean {
             if (string.isEmpty()) {
                 return when (node) {
-                    is Node.Root -> false.also { println("Returning at Location 1.") }
-                    is Node.Child -> return node.endOfWord.also { println("Returning at Location 2.") }
+                    is Node.Root -> false
+                    is Node.Child -> return node.endOfWord
                 }
             }
 
-            val (child, diffResult) = node.findChild(string) ?: return false.also { println("Returning at Location 3.") }
+            val (child, diffResult) = node.findChild(string) ?: return false
 
-            if (diffResult is DiffResult.Identical) return child.endOfWord.also { println("Returning at Location 4.") }
+            if (diffResult is DiffResult.Identical) return child.endOfWord
 
             check(diffResult is DiffResult.Shared)
+
+            if (diffResult.remainder.isNotEmpty()) return false
+
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null)
 
             return when {
-                trimmedString.isEmpty() -> (child.endOfWord && diffResult.remainder.isEmpty()).also { println("Returning at Location 5.") }
+                trimmedString.isEmpty() -> (child.endOfWord && diffResult.remainder.isEmpty())
                 else -> contains(child, trimmedString)
             }
         }
