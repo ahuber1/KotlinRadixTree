@@ -53,7 +53,7 @@ class KRadixTreeTests {
                     println("[REMOVING] Index: $index, Word Count: ${words.size}")
                 }
 
-                if (index == 2354) {
+                if (index == words.size - 1) {
                     println("Something terrible is about to happen.")
                 }
 

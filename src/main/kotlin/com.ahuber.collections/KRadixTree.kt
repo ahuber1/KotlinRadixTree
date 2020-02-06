@@ -38,9 +38,14 @@ class KRadixTree : MutableSet<String> {
 
     override fun remove(element: String): Boolean {
         val string = element.catchInvalidInputString { return false }
-        val successful = remove(null, root, string)
-        if (successful) newVersion()
-        return successful
+
+        if (!remove(null, root, string)) {
+            return false
+        }
+
+        newVersion()
+        cleanup(root)
+        return true
     }
 
     override fun removeAll(elements: Collection<String>): Boolean = elements.fold { remove(it) }
@@ -461,37 +466,37 @@ class KRadixTree : MutableSet<String> {
             return child.wordCount - previousWordCount
         }
 
-        private fun cleanup(child: Node.Child) {
-            val orphanedGrandchildren = child.childrenCopy.filter { !it.endOfWord && it.childCount == 0 }
+        private fun cleanup(node: Node) {
+            val orphanedGrandchildren = node.childrenCopy.filter { !it.endOfWord && it.childCount == 0 }
 
             for (orphanedGrandchild in orphanedGrandchildren) {
-                child.removeChild(orphanedGrandchild)
+                node.removeChild(orphanedGrandchild)
             }
 
-            if (child.childCount != 1) return
+            if (node.childCount != 1 || node !is Node.Child) return
 
             // Now we know there is only one grandchild :-)
 
             // If the grandchild marks the end of a word
-            if (child.childrenCopy[0].endOfWord) {
+            if (node.childrenCopy[0].endOfWord) {
                 // If the child does NOT mark the end of a word
-                if (!child.endOfWord) {
-                    child.string += child.childrenCopy[0].string
-                    child.endOfWord = child.childrenCopy[0].endOfWord
-                    child.childrenCopy[0].moveChildrenTo(child)
+                if (!node.endOfWord) {
+                    node.string += node.childrenCopy[0].string
+                    node.endOfWord = node.childrenCopy[0].endOfWord
+                    node.childrenCopy[0].moveChildrenTo(node)
                 }
             }
             // If the grandchild does NOT mark the end of a word
             else {
                 // If the child marks the end of a word
-                if (child.endOfWord) {
-                    child.removeChild(child.childrenCopy[0])
+                if (node.endOfWord && node.childrenCopy[0].childCount == 0) {
+                    node.removeChild(node.childrenCopy[0])
                 }
                 // If the child does NOT mark the end of the word
-                else {
-                    child.string += child.childrenCopy[0].string
-                    child.endOfWord = child.childrenCopy[0].endOfWord
-                    child.childrenCopy[0].moveChildrenTo(child)
+                else if (!node.endOfWord) {
+                    node.string += node.childrenCopy[0].string
+                    node.endOfWord = node.childrenCopy[0].endOfWord
+                    node.childrenCopy[0].moveChildrenTo(node)
                 }
             }
         }
