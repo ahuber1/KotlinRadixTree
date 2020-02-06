@@ -6,11 +6,19 @@ import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
 
-class KRadixTree : MutableSet<String> {
+class KRadixTree() : MutableSet<String> {
     private val root = Node.Root()
     private lateinit var version: UUID
 
     override val size get() = root.wordCount
+
+    constructor(iterable: Iterable<String>) : this() {
+        this.addAll(iterable)
+    }
+
+    constructor(sequence: Sequence<String>) : this() {
+        this.addAll(sequence)
+    }
 
     init {
         newVersion()

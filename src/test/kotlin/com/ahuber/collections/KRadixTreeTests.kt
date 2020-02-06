@@ -25,6 +25,23 @@ class KRadixTreeTests {
         addThenRemove(Direction.RL)
     }
 
+    @Test
+    fun `test iterator`() {
+        for (direction in Direction.values()) {
+            val words = getWords(direction).toList()
+            val treeSet = TreeSet<String>()
+            treeSet.addAll(words)
+            val radixTree = KRadixTree(words)
+            assertEquals(treeSet.size, radixTree.size)
+
+            for ((index, pair) in treeSet.zip(radixTree).withIndex()) {
+                val (setString, treeString) = pair
+                println("[$index] Set: \"$setString\", Tree: \"$treeString\"")
+                assertEquals(setString, treeString)
+            }
+        }
+    }
+
     private val Direction.otherDirection get() = when (this) {
         Direction.LR -> Direction.RL
         Direction.RL -> Direction.LR
