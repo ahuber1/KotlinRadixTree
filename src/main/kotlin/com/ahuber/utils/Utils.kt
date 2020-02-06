@@ -4,6 +4,8 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import java.math.BigDecimal
 
+data class TrackedChange<TTracked, T>(val before: TTracked, val after: TTracked, val result: T)
+
 inline val String.containsWhitespace: Boolean
     get() = any { it.isWhitespace() }
 
@@ -61,4 +63,11 @@ fun IntRange.halveLeft(): IntRange? = when (this.length) {
 fun IntRange.halveRight(): IntRange? = when (this.length) {
     0 -> null
     else -> this.middle until this.last
+}
+
+inline fun <TTracked, T> track(getTrackedValue: () -> TTracked, block: () -> T): TrackedChange<TTracked, T> {
+    val before = getTrackedValue()
+    val result = block()
+    val after = getTrackedValue()
+    return TrackedChange(before, after, result)
 }

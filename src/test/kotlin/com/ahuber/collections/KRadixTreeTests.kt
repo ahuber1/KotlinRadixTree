@@ -2,6 +2,7 @@ package com.ahuber.collections
 
 import com.ahuber.test.utils.getResourceAsFile
 import com.ahuber.utils.*
+import org.opentest4j.AssertionFailedError
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
@@ -32,36 +33,14 @@ class KRadixTreeTests {
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
         val sets: Array<MutableSet<String>> = arrayOf(HashSet(), KRadixTree())
-        val stringLength = "%,d".format(words.size).length
-
-        var addDurationSum = 0.0.bd
-        var containsDurationSum = 0.0.bd
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
-            var indentation: String? = null
-
-            if (set is KRadixTree) {
-                val prefix = "[%,${stringLength}d of %,${stringLength}d]".format(index + 1, words.size)
-                println("$prefix Adding elements...")
-                indentation = ' '.repeat(prefix.length)
+            if (index % 1000 == 0 && set is KRadixTree) {
+                println("[ADDING] Index: $index, Word Count: ${words.size}")
             }
 
-            val addDuration = measureMillisWithResult { set.add(word) }.also { assertTrue(it.result) }.duration.toMillis()
-
-            if (indentation != null) {
-                addDurationSum += addDuration.bd
-                println("%s Add took %,d milliseconds to run.".format(indentation, addDuration))
-                println("%s Add has averaged %,.2f nanoseconds so far.".format(indentation, addDurationSum / (index + 1).bd))
-            }
-
-            val containsDuration = measureMillisWithResult { word in set }.also { assertTrue(it.result) }.duration.toMillis()
-
-            if (indentation != null) {
-                containsDurationSum += containsDuration.bd
-                println("%s Contains took %,d milliseconds to run.".format(indentation, containsDuration))
-                println("%s Contains has averaged %,.2f nanoseconds so far.".format(indentation, containsDurationSum / (index + 1).bd))
-            }
-
+            assertTrue(set.add(word))
+            assertTrue(word in set)
             assertEquals(index + 1, set.size)
         }
 
@@ -69,10 +48,22 @@ class KRadixTreeTests {
         val initialSize = words.size
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
-            println("[${index + 1}/${words.size}] $word: Removing elements from a ${set.javaClass.typeName}")
-            assertTrue(set.remove(word))
-            assertFalse(word in set)
-            assertEquals(initialSize - index - 1, set.size)
+            try {
+                if (index % 1000 == 0 && set is KRadixTree) {
+                    println("[REMOVING] Index: $index, Word Count: ${words.size}")
+                }
+
+                if (index == 542) {
+                    println("Something terrible is about to happen.")
+                }
+
+                assertTrue(set.remove(word))
+                assertFalse(word in set)
+                assertEquals(initialSize - index - 1, set.size)
+            } catch (throwable: Throwable) {
+                System.err.println("[REMOVING] Index: $index, Word Count: ${words.size}")
+                throw throwable
+            }
         }
     }
 
