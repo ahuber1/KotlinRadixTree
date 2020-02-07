@@ -4,7 +4,6 @@ import com.ahuber.utils.*
 import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
-import kotlin.collections.HashSet
 
 class KRadixTree() : MutableSet<String> {
     private val root = Node.Root()
@@ -129,8 +128,9 @@ class KRadixTree() : MutableSet<String> {
             this.children = ArrayList()
         }
 
-        fun copyChildrenTo(collection: MutableCollection<Child>) {
+        fun <T: MutableCollection<Child>> copyChildrenTo(collection: T): T {
             collection.addAll(children)
+            return collection
         }
 
         fun findChild(string: String): Pair<Child, DiffResult>? {
@@ -212,101 +212,97 @@ class KRadixTree() : MutableSet<String> {
     }
 
     private class KRadixTreeIterator(private val tree: KRadixTree): MutableIterator<String> {
+        private lateinit var cachedVersion: UUID
+        private val invalidated: Boolean get() = tree.version != cachedVersion
         private val ancestors = Stack<NodeWrapper>()
-        private val returnedWords = HashSet<String>()
-        private var next: String? = null
+        private val returnedWords = TreeSet<String>()
+        private var next: NodeWrapper? = null
         private var nextRetrieved = false
-        private var cachedVersion = tree.version
 
         init {
             invalidate()
         }
 
-        private val currentWord: String?
-            get() = ancestors.mapNotNull { (it.node as? Node.Child)?.string }
-                    .fold(StringBuilder()) { builder, chunk -> builder.append(chunk)}
-                    .reverse()
-                    .toString()
-                    .let { if (it.isEmpty()) null else it }
-
-        private inline val wasInvalidated get() = cachedVersion != tree.version
-
         override fun hasNext(): Boolean {
-            if (wasInvalidated) invalidate()
+            if (invalidated) {
+                invalidate()
+            }
 
-            // If we have already computed the next value and it has not been returned via next(), return true
-            if (this.next != null && !nextRetrieved) return true
+            if (next != null && !nextRetrieved) {
+                return true
+            }
 
-            // Otherwise, find the next item (if any) and return a Boolean indicating whether we were able to find
-            // the next item in the iterator
             nextRetrieved = false
-            var next: Node.Child?
-
-            do {
-                next = findNext()
-            } while (next != null && currentWord in returnedWords)
-
-
-            this.next = currentWord
-            return this.next != null
+            next = findNext()
+            return next != null
         }
 
-        override fun next(): String = when (hasNext()) {
-            false -> throw NoSuchElementException()
-            true ->
-                // Should never happen but added for Smart Cast
-                when (val next = this.next) {
-                null -> throw NoSuchElementException()
-                else -> {
-                    nextRetrieved = true
-                    returnedWords.add(next)
-                    next
-                }
+        override fun next(): String {
+            if (!hasNext()) {
+                throw NoSuchElementException()
             }
+
+            val word = next!!.word
+            returnedWords.add(word)
+            nextRetrieved = true
+            return word
         }
 
         override fun remove() {
-            when (val next = this.next) {
-                null -> return
-                else -> tree.remove(next)
+            val next = next
+
+            when {
+                !nextRetrieved || next == null -> return
+                else -> tree.remove(next.word)
             }
         }
 
-        private fun findNext(): Node.Child? {
-            while (true) {
-                if (ancestors.isEmpty()) return null
+        private fun findNext() : NodeWrapper? {
+            while (ancestors.isNotEmpty()) {
+                val current = ancestors.pop()
 
-                val children = ancestors.peek().children
-
-                if (children.isEmpty()) {
-                    val child = ancestors.pop().node as? Node.Child
-
-                    if (child != null && child.endOfWord) {
-                        return child
-                    }
-
+                while (current.children.isNotEmpty()) {
+                    ancestors.push(current.children.pop())
                 }
 
-                ancestors.push(children.poll().wrap())
+                if (current.word !in returnedWords && current.node is Node.Child && current.node.endOfWord) {
+                    return current
+                }
             }
+
+            return null
         }
 
         private fun invalidate() {
             ancestors.clear()
-            ancestors.push(tree.root.wrap())
-            next = null
-            nextRetrieved = false
+            ancestors.push(NodeWrapper(tree.root, null))
             cachedVersion = tree.version
+            nextRetrieved = false
+            next = null
+        }
+    }
+
+    private data class NodeWrapper(val node: Node, val ancestor: NodeWrapper?) {
+        val word: String
+        val children: Stack<NodeWrapper> by lazy {
+            val childList = node.copyChildrenTo(LinkedList())
+            val stack = Stack<NodeWrapper>()
+
+            for (child in childList) {
+                stack.push(NodeWrapper(child, this))
+            }
+
+            stack
         }
 
-        private fun Node.wrap() = NodeWrapper(this)
+        init {
+            val ancestorChild = ancestor?.node as? Node.Child
+            val currentChild = node as? Node.Child
 
-        data class NodeWrapper(val node: Node) {
-            val children: Queue<Node.Child> = LinkedList()
+            val ancestorString = ancestorChild?.string ?: ""
+            val currentString = currentChild?.string ?: ""
 
-            init {
-                node.copyChildrenTo(children)
-            }
+            word = ancestorString + currentString
         }
     }
 

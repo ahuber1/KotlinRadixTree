@@ -2,12 +2,10 @@ package com.ahuber.collections
 
 import com.ahuber.test.utils.getResourceAsFile
 import com.ahuber.utils.*
-import org.opentest4j.AssertionFailedError
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
-import kotlin.system.measureNanoTime
 import kotlin.test.*
 
 typealias TestWithWordsBlock = (index: Int, word: String, set: MutableSet<String>) -> Unit
@@ -42,10 +40,72 @@ class KRadixTreeTests {
         }
     }
 
+    @Test
+    fun `test iterator with remove`() {
+        val words = getWords().toList()
+        val characterSet = words.asSequence()
+                .groupBy { it.first() }
+                .map { it.key to it.value.size }
+                .asSequence()
+                .sortedByDescending { it.second }
+                .take(3)
+                .map { it.first }
+                .toSet()
+
+        val controlSet = words.toSortedSet()
+        val testSet = KRadixTree(words)
+
+        val controlIterator = controlSet.iterator()
+        val testIterator = testSet.iterator()
+
+        val controlDestinationSet = TreeSet<String>()
+        val testDestinationSet = TreeSet<String>()
+        var index = 0
+
+        while (controlIterator.hasNext() || testIterator.hasNext()) {
+            println("index: ${index++}")
+            val nextFromControl = controlIterator.next()
+            val nextFromTest = testIterator.next()
+
+            assertEquals(nextFromControl, nextFromTest)
+
+            if (nextFromControl[0] !in characterSet) {
+                assertTrue(controlDestinationSet.add(nextFromControl))
+                assertTrue(testDestinationSet.add(nextFromTest))
+            } else {
+                controlIterator.remove()
+                testIterator.remove()
+            }
+        }
+
+        assertEquals(controlSet.size, controlDestinationSet.size)
+        assertEquals(testSet.size, testDestinationSet.size)
+        assertEquals(controlSet.size, testSet.size)
+
+        val controlSequence = controlSet.asSequence()
+        val testSequence = testSet.asSequence()
+        val controlDestinationSequence = controlDestinationSet.asSequence()
+        val testDestinationSequence = testDestinationSet.asSequence()
+        val zippedSequences = controlSequence.zip(testSequence)
+                .zip(controlDestinationSequence)
+                .zip(testDestinationSequence)
+
+        for (pair in zippedSequences) {
+            val (pair1, testDestinationString) = pair
+            val (pair2, controlDestinationString) = pair1
+            val (controlString, testString) = pair2
+            val allStrings = arrayOf(controlString, testString, controlDestinationString, testDestinationString)
+            assertEquals(1, allStrings.distinct().size)
+            assertTrue(allStrings.all { it[0] !in characterSet })
+        }
+    }
+
     private val Direction.otherDirection get() = when (this) {
         Direction.LR -> Direction.RL
         Direction.RL -> Direction.LR
     }
+
+    private fun <T> Collection<T>.toSizedSequence() = SizedSequence(this.asSequence(), this.size)
 
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
@@ -93,16 +153,19 @@ class KRadixTreeTests {
         }
     }
 
-    private fun getWords(direction: Direction): SizedSequence<String> {
+    private fun getWords(): Sequence<String> {
         val path = "words.txt"
         val file = getResourceAsFile(path) ?: fail("Unable to get resource $path")
-        var words: MutableList<String?> = file.readText()
+        return file.readText()
                 .split(Regex("\\s"))
                 .asSequence()
                 .map { it.toLowerCase() }
                 .filter { it.isNotEmpty() }
                 .distinct()
-                .toMutableList()
+    }
+
+    private fun getWords(direction: Direction): SizedSequence<String> {
+        var words: MutableList<String?> = getWords().toMutableList()
 
         val sequence = sequence<String> {
             while (true) {
