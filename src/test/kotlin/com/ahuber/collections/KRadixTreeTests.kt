@@ -27,15 +27,22 @@ class KRadixTreeTests {
     fun `test iterator`() {
         for (direction in Direction.values()) {
             val words = getWords(direction).toList()
-            val treeSet = TreeSet<String>()
-            treeSet.addAll(words)
+            val wordMap = words.asSequence().distinct().map { it to false }.toMap(HashMap())
             val radixTree = KRadixTree(words)
-            assertEquals(treeSet.size, radixTree.size)
+            assertEquals(wordMap.size, radixTree.size)
 
-            for ((index, pair) in treeSet.zip(radixTree).withIndex()) {
-                val (setString, treeString) = pair
-                println("[$index] Set: \"$setString\", Tree: \"$treeString\"")
-                assertEquals(setString, treeString)
+            for (word in radixTree) {
+                assertTrue(word in wordMap,
+                        "The word ${word.wrapInQuotes()} was not in the original word list.")
+                wordMap[word] = true
+            }
+
+            val missingWords = wordMap.entries.asSequence().filter { !it.value }.map { it.key }
+            val wordsString = missingWords.withIndex().joinToString("\n") { "\t[${it.index}] ${it.value}" }
+
+            if (wordsString.isNotEmpty()) {
+                fail("Not all words that are in the radix tree were returned by the iterator. " +
+                        "The missing words are:\n$wordsString")
             }
         }
     }

@@ -284,25 +284,19 @@ class KRadixTree() : MutableSet<String> {
 
     private data class NodeWrapper(val node: Node, val ancestor: NodeWrapper?) {
         val word: String
-        val children: Stack<NodeWrapper> by lazy {
-            val childList = node.copyChildrenTo(LinkedList())
-            val stack = Stack<NodeWrapper>()
-
-            for (child in childList) {
-                stack.push(NodeWrapper(child, this))
-            }
-
-            stack
-        }
+        val children: Stack<NodeWrapper>
 
         init {
-            val ancestorChild = ancestor?.node as? Node.Child
-            val currentChild = node as? Node.Child
+            val ancestorWord = ancestor?.word ?: ""
+            val currentWord = (node as? Node.Child)?.string ?: ""
+            word = ancestorWord + currentWord
 
-            val ancestorString = ancestorChild?.string ?: ""
-            val currentString = currentChild?.string ?: ""
+            val childList = node.copyChildrenTo(LinkedList())
+            children = Stack()
 
-            word = ancestorString + currentString
+            for (child in childList) {
+                children.push(NodeWrapper(child, this))
+            }
         }
     }
 

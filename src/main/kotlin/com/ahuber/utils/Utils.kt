@@ -16,6 +16,8 @@ inline val Number.bd get() = BigDecimal(this.toDouble())
 fun String.toCharArrayWithFill(newLength: Int, fillerChar: Char = '\u0000') : CharArray =
         CharArray(newLength) { index -> if (index < this.length) this[index] else fillerChar }
 
+fun String.wrapInQuotes() = "\"$this\""
+
 fun Double.format(numDigits: Int) : String {
     check(numDigits >= 0) { "numDigits must be greater than or equal to zero" }
     return String.format("%.${numDigits}f", this)
