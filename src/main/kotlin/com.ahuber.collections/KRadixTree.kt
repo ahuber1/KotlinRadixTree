@@ -4,6 +4,7 @@ import com.ahuber.utils.*
 import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
+import kotlin.collections.HashSet
 
 class KRadixTree() : MutableSet<String> {
     private val root = Node.Root()
@@ -215,7 +216,7 @@ class KRadixTree() : MutableSet<String> {
         private lateinit var cachedVersion: UUID
         private val invalidated: Boolean get() = tree.version != cachedVersion
         private val ancestors = Stack<NodeWrapper>()
-        private val returnedWords = TreeSet<String>()
+        private val returnedWords = HashSet<String>()
         private var next: NodeWrapper? = null
         private var nextRetrieved = false
 
@@ -224,17 +225,22 @@ class KRadixTree() : MutableSet<String> {
         }
 
         override fun hasNext(): Boolean {
-            if (invalidated) {
-                invalidate()
+            val (duration, result) = measureMillisWithResult {
+                if (invalidated) {
+                    invalidate()
+                }
+
+                if (next != null && !nextRetrieved) {
+                    true
+                } else {
+                    nextRetrieved = false
+                    next = findNext()
+                    next != null
+                }
             }
 
-            if (next != null && !nextRetrieved) {
-                return true
-            }
-
-            nextRetrieved = false
-            next = findNext()
-            return next != null
+            println("%,d ms".format(duration.toMillis()))
+            return result
         }
 
         override fun next(): String {
