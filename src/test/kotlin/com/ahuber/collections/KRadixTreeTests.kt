@@ -2,7 +2,10 @@ package com.ahuber.collections
 
 import com.ahuber.test.utils.getResourceAsFile
 import com.ahuber.utils.*
+import org.junit.jupiter.api.Assertions
+import java.time.Duration
 import java.util.*
+import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
@@ -18,92 +21,69 @@ class KRadixTreeTests {
     }
 
     @Test
-    fun `test with words`() {
-        addThenRemove(Direction.LR)
-        addThenRemove(Direction.RL)
-    }
+    fun `test with words`() = Direction.values().forEach { addThenRemove(it) }
 
     @Test
     fun `test iterator`() {
-        for (direction in Direction.values()) {
-            val words = getWords(direction).toList()
-            val wordMap = words.asSequence().distinct().map { it to false }.toMap(HashMap())
-            val radixTree = KRadixTree(words)
-            assertEquals(wordMap.size, radixTree.size)
-
-            for (word in radixTree) {
-                assertTrue(word in wordMap,
-                        "The word ${word.wrapInQuotes()} was not in the original word list.")
-                wordMap[word] = true
-            }
-
-            val missingWords = wordMap.entries.asSequence().filter { !it.value }.map { it.key }
-            val wordsString = missingWords.withIndex().joinToString("\n") { "\t[${it.index}] ${it.value}" }
-
-            if (wordsString.isNotEmpty()) {
-                fail("Not all words that are in the radix tree were returned by the iterator. " +
-                        "The missing words are:\n$wordsString")
+        Assertions.assertTimeout(Duration.ofSeconds(10)) {
+            for (direction in Direction.values()) {
+                val words = getWords(direction).toList()
+                val radixTree = KRadixTree(words)
+                radixTree.assertContainsWords(words)
             }
         }
     }
 
     @Test
     fun `test iterator with remove`() {
-        val words = getWords().toList()
-        val characterSet = words.asSequence()
-                .groupBy { it.first() }
-                .map { it.key to it.value.size }
-                .asSequence()
-                .sortedByDescending { it.second }
-                .take(3)
-                .map { it.first }
-                .toSet()
+        Assertions.assertTimeout(Duration.ofSeconds(10)) {
+            val words = getWords().toList()
+            val characterSet = words.asSequence()
+                    .groupBy { it.first() }
+                    .map { it.key to it.value.size }
+                    .asSequence()
+                    .sortedByDescending { it.second }
+                    .take(3)
+                    .map { it.first }
+                    .toSet()
+            val controlSet = words.toMutableSet()
+            val testSet = KRadixTree(words)
 
-        val controlSet = words.toSortedSet()
-        val testSet = KRadixTree(words)
+            val controlIterator = controlSet.iterator()
+            val testIterator = testSet.iterator()
+            var index = -1
+            var removeFromControlCount = 0
+            var removeFromTestCount = 0
 
-        val controlIterator = controlSet.iterator()
-        val testIterator = testSet.iterator()
+            while (controlIterator.hasNext() || testIterator.hasNext()) {
+                index++
+                try {
+                    val nextFromControl = controlIterator.next()
+                    val nextFromTest = testIterator.next()
 
-        val controlDestinationSet = TreeSet<String>()
-        val testDestinationSet = TreeSet<String>()
-        var index = 0
+                    if (nextFromControl[0] in characterSet) {
+                        controlIterator.remove()
+                        removeFromControlCount++
+                    }
 
-        while (controlIterator.hasNext() || testIterator.hasNext()) {
-            println("index: ${index++}")
-            val nextFromControl = controlIterator.next()
-            val nextFromTest = testIterator.next()
-
-            assertEquals(nextFromControl, nextFromTest)
-
-            if (nextFromControl[0] !in characterSet) {
-                assertTrue(controlDestinationSet.add(nextFromControl))
-                assertTrue(testDestinationSet.add(nextFromTest))
-            } else {
-                controlIterator.remove()
-                testIterator.remove()
+                    if (nextFromTest[0] in characterSet) {
+                        testIterator.remove()
+                        removeFromTestCount++
+                    }
+                } catch (e: NoSuchElementException) {
+                    System.err.apply {
+                        println("NoSuchElementException")
+                        printf("\tIndex: %,d\n", index)
+                        println("\tRemove Counts:")
+                        printf("\t\tControl: %,d\n", removeFromControlCount)
+                        printf("\t\t   Test: %,d\n", removeFromTestCount)
+                    }
+                    throw e
+                }
             }
-        }
 
-        assertEquals(controlSet.size, controlDestinationSet.size)
-        assertEquals(testSet.size, testDestinationSet.size)
-        assertEquals(controlSet.size, testSet.size)
-
-        val controlSequence = controlSet.asSequence()
-        val testSequence = testSet.asSequence()
-        val controlDestinationSequence = controlDestinationSet.asSequence()
-        val testDestinationSequence = testDestinationSet.asSequence()
-        val zippedSequences = controlSequence.zip(testSequence)
-                .zip(controlDestinationSequence)
-                .zip(testDestinationSequence)
-
-        for (pair in zippedSequences) {
-            val (pair1, testDestinationString) = pair
-            val (pair2, controlDestinationString) = pair1
-            val (controlString, testString) = pair2
-            val allStrings = arrayOf(controlString, testString, controlDestinationString, testDestinationString)
-            assertEquals(1, allStrings.distinct().size)
-            assertTrue(allStrings.all { it[0] !in characterSet })
+            assertEquals(controlSet.size, testSet.size)
+            testSet.assertContainsWords(controlSet)
         }
     }
 
@@ -112,17 +92,11 @@ class KRadixTreeTests {
         Direction.RL -> Direction.LR
     }
 
-    private fun <T> Collection<T>.toSizedSequence() = SizedSequence(this.asSequence(), this.size)
-
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
         val sets: Array<MutableSet<String>> = arrayOf(HashSet(), KRadixTree())
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
-            if (index % 1000 == 0 && set is KRadixTree) {
-                println("[ADDING] Index: $index, Word Count: ${words.size}")
-            }
-
             assertTrue(set.add(word))
             assertTrue(word in set)
             assertEquals(index + 1, set.size)
@@ -133,19 +107,10 @@ class KRadixTreeTests {
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
             try {
-                if (index % 1000 == 0 && set is KRadixTree) {
-                    println("[REMOVING] Index: $index, Word Count: ${words.size}")
-                }
-
-                if (index == words.size - 1) {
-                    println("Something terrible is about to happen.")
-                }
-
                 assertTrue(set.remove(word))
                 assertFalse(word in set)
                 assertEquals(initialSize - index - 1, set.size)
             } catch (throwable: Throwable) {
-                System.err.println("[REMOVING] Index: $index, Word Count: ${words.size}")
                 throw throwable
             }
         }
@@ -223,6 +188,34 @@ class KRadixTreeTests {
                 generateIndices(this.indices, map, 0, direction)
                 map.asSequence().sortedBy { it.key }.flatMap { it.value.asSequence() }.distinct().toList()
             }
+        }
+    }
+
+    private fun KRadixTree.assertContainsWords(words: Iterable<String>) {
+        val distinctWords = when (words) {
+            is Set<String> -> words.asSequence()
+            else -> words.asSequence().distinct()
+        }
+        val wordMap = distinctWords.map { it to false }.toMap(HashMap())
+        assertEquals(wordMap.size, size)
+
+        for (word in this) {
+            assertTrue(word in wordMap,
+                    "The word ${word.wrapInQuotes()} was not in the original word list.")
+            wordMap[word] = true
+        }
+
+        val wordLimit = 20
+        val missingWords = wordMap.entries.asSequence().filter { !it.value }.map { it.key }.toList()
+        val wordsString = missingWords.withIndex().joinToString(
+                separator = "\n",
+                limit = wordLimit,
+                truncated = "And %,d more".format(missingWords.size - wordLimit)) { "\t[${it.index}] ${it.value}" }
+
+        if (wordsString.isNotEmpty()) {
+            val errorMessage = "Not all words that are in the radix tree were returned by the iterator.\n" +
+                    "The missing words are:\n$wordsString"
+            fail(errorMessage)
         }
     }
 }

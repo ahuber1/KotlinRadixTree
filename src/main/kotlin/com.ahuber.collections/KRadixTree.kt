@@ -74,6 +74,7 @@ class KRadixTree() : MutableSet<String> {
     }
 
     private sealed class Node {
+        //region Properties
         /**
          * Gets or sets the number of words contained in the subtree of this [KRadixTree] where this node is the root.
          * This node is included in this count.
@@ -84,9 +85,47 @@ class KRadixTree() : MutableSet<String> {
          * Gets the number of direct descendants of this node.
          */
         val childCount: Int get() = children.size
-
         protected var children: MutableList<Child> = ArrayList()
+        //endregion
 
+        //region Nested Members
+        class Root : Node()
+        class Child private constructor(
+                var string: String,
+                var endOfWord: Boolean,
+                wordCount: Int = 0
+        ) : Node(), Comparable<Child> {
+
+            init {
+                this.wordCount = wordCount
+            }
+
+            override fun equals(other: Any?): Boolean = when (super.equals(other)) {
+                false -> false
+                true -> when (val child = other as? Child) {
+                    null -> false
+                    else -> this.string == child.string && this.endOfWord == child.endOfWord
+                }
+            }
+
+            override fun hashCode(): Int = Objects.hash(super.hashCode(), string.hashCode())
+
+            override fun compareTo(other: Child): Int {
+                return this.string.compareTo(other.string)
+            }
+
+            companion object {
+                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
+                    return when {
+                        string.isEmpty() || descendantCount < 0 -> null
+                        else -> Child(string, endOfWord, descendantCount)
+                    }
+                }
+            }
+        }
+        //endregion
+
+        //region Methods in Node
         final override fun toString(): String {
             val prefix = when (this) {
                 is Root -> "Root("
@@ -155,8 +194,9 @@ class KRadixTree() : MutableSet<String> {
                 removeChild(orphanedGrandchild)
             }
 
-            if (childCount != 1 || this !is Child) return
-
+            if (childCount != 1 || this !is Child) {
+                return
+            }
             // Now we know there is only one grandchild :-)
 
             // If the grandchild marks the end of a word
@@ -182,34 +222,7 @@ class KRadixTree() : MutableSet<String> {
                 }
             }
         }
-
-        class Root : Node()
-        class Child private constructor(var string: String, var endOfWord: Boolean, wordCount: Int = 0) : Node(), Comparable<Child> {
-
-            init {
-                this.wordCount = wordCount
-            }
-
-            override fun equals(other: Any?): Boolean = when (super.equals(other)) {
-                false -> false
-                true -> when (val child = other as? Child) {
-                    null -> false
-                    else -> this.string == child.string && this.endOfWord == child.endOfWord
-                }
-            }
-
-            override fun hashCode(): Int = Objects.hash(super.hashCode(), string.hashCode())
-
-            override fun compareTo(other: Child): Int {
-                return this.string.compareTo(other.string)
-            }
-
-            companion object {
-                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
-                    return if (string.isEmpty() || descendantCount < 0) null else Child(string, endOfWord, descendantCount)
-                }
-            }
-        }
+        //endregion
     }
 
     private class KRadixTreeIterator(private val tree: KRadixTree) : MutableIterator<String> {
@@ -225,22 +238,17 @@ class KRadixTree() : MutableSet<String> {
         }
 
         override fun hasNext(): Boolean {
-            val (duration, result) = measureMillisWithResult {
-                if (invalidated) {
-                    invalidate()
-                }
-
-                if (next != null && !nextRetrieved) {
-                    true
-                } else {
-                    nextRetrieved = false
-                    next = findNext()
-                    next != null
-                }
+            if (invalidated) {
+                invalidate()
             }
 
-            println("%,d ms".format(duration.toMillis()))
-            return result
+            if (next != null && !nextRetrieved) {
+                return true
+            }
+
+            nextRetrieved = false
+            next = findNext()
+            return next != null
         }
 
         override fun next(): String {
@@ -256,11 +264,11 @@ class KRadixTree() : MutableSet<String> {
 
         override fun remove() {
             val next = next
-
-            when {
+            val removeSuccessful = when {
                 !nextRetrieved || next == null -> return
                 else -> tree.remove(next.word)
             }
+            check(removeSuccessful) { "Removal was not successful." }
         }
 
         private fun findNext(): NodeWrapper? {
@@ -288,17 +296,16 @@ class KRadixTree() : MutableSet<String> {
         }
     }
 
-    private data class NodeWrapper(val node: Node, val ancestor: NodeWrapper?) {
+    private data class NodeWrapper(val node: Node, val parent: NodeWrapper?) {
         val word: String
         val children: Stack<NodeWrapper>
 
         init {
-            val ancestorWord = ancestor?.word ?: ""
+            val ancestorWord = parent?.word ?: ""
             val currentWord = (node as? Node.Child)?.string ?: ""
             word = ancestorWord + currentWord
 
             val childList = node.copyChildrenTo(LinkedList())
-            children = Stack()
 
             for (child in childList) {
                 children.push(NodeWrapper(child, this))
