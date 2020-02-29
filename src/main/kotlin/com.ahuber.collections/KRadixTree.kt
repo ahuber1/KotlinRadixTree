@@ -1,10 +1,12 @@
 package com.ahuber.collections
 
 import com.ahuber.utils.*
+import java.time.Duration
 import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
+import kotlin.system.measureTimeMillis
 
 class KRadixTree() : MutableSet<String> {
     private val root = Node.Root()
@@ -168,10 +170,7 @@ class KRadixTree() : MutableSet<String> {
             this.children = ArrayList()
         }
 
-        fun <T : MutableCollection<Child>> copyChildrenTo(collection: T): T {
-            collection.addAll(children)
-            return collection
-        }
+        fun childAt(index: Int): Child? = children.getOrNull(index)
 
         fun findChild(string: String): Pair<Child, DiffResult>? {
             val index = children.binarySearch {
@@ -252,8 +251,14 @@ class KRadixTree() : MutableSet<String> {
         }
 
         override fun next(): String {
-            if (!hasNext()) {
-                throw NoSuchElementException()
+            val millis = measureTimeMillis {
+                if (!hasNext()) {
+                    throw NoSuchElementException()
+                }
+            }
+
+            if (millis > 10) {
+                println("Caching returned word: %,d".format(millis))
             }
 
             val word = next!!.word
@@ -272,19 +277,15 @@ class KRadixTree() : MutableSet<String> {
         }
 
         private fun findNext(): NodeWrapper? {
-            while (ancestors.isNotEmpty()) {
-                val current = ancestors.pop()
-
-                while (current.children.isNotEmpty()) {
-                    ancestors.push(current.children.pop())
-                }
-
-                if (current.word !in returnedWords && current.node is Node.Child && current.node.endOfWord) {
-                    return current
-                }
+            if (ancestors.isEmpty()) {
+                return null
             }
 
-            return null
+            var current: NodeWrapper? = null
+
+            do {
+
+            } while (true)
         }
 
         private fun invalidate() {
@@ -298,18 +299,17 @@ class KRadixTree() : MutableSet<String> {
 
     private data class NodeWrapper(val node: Node, val parent: NodeWrapper?) {
         val word: String
-        val children: Stack<NodeWrapper>
+        private var childIndex = 0
 
         init {
             val ancestorWord = parent?.word ?: ""
             val currentWord = (node as? Node.Child)?.string ?: ""
             word = ancestorWord + currentWord
+        }
 
-            val childList = node.copyChildrenTo(LinkedList())
-
-            for (child in childList) {
-                children.push(NodeWrapper(child, this))
-            }
+        fun nextChild(): NodeWrapper? = when (val next = node.childAt(childIndex++)) {
+            null -> null
+            else -> NodeWrapper(next, this)
         }
     }
 
