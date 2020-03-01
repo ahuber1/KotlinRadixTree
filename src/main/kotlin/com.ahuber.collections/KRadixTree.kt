@@ -1,18 +1,20 @@
 package com.ahuber.collections
 
-import com.ahuber.utils.*
-import java.time.Duration
+import com.ahuber.utils.DiffResult
+import com.ahuber.utils.containsWhitespace
+import com.ahuber.utils.diffWith
+import com.ahuber.utils.removeSharedPrefix
 import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.collections.ArrayList
 import kotlin.collections.HashSet
-import kotlin.system.measureTimeMillis
 
 class KRadixTree() : MutableSet<String> {
     private val root = Node.Root()
     private lateinit var version: UUID
 
-    override val size get() = root.wordCount
+    override var size = 0
+        private set
 
     constructor(iterable: Iterable<String>) : this() {
         this.addAll(iterable)
@@ -27,12 +29,14 @@ class KRadixTree() : MutableSet<String> {
     }
 
     override fun add(element: String): Boolean {
-        val string = element.normalize {
-            "Cannot add a string with whitespace characters. String was \"$element\""
+        val string = element.check {
+            throw IllegalArgumentException("Cannot add a string with whitespace characters. String was \"$element\"")
         }
-
         val successful = add(root, string)
-        if (successful) newVersion()
+        if (successful) {
+            newVersion()
+            size++
+        }
         return successful
     }
 
@@ -40,20 +44,21 @@ class KRadixTree() : MutableSet<String> {
 
     override fun clear() {
         root.clearChildren()
-        root.wordCount = 0
         newVersion()
+        size = 0
     }
 
     override fun iterator(): MutableIterator<String> = KRadixTreeIterator(this)
 
     override fun remove(element: String): Boolean {
-        val string = element.catchInvalidInputString { return false }
+        val string = element.check { return false }
 
         if (!remove(null, root, string)) {
             return false
         }
 
         newVersion()
+        size--
         root.cleanup()
         return true
     }
@@ -62,7 +67,7 @@ class KRadixTree() : MutableSet<String> {
 
     override fun retainAll(elements: Collection<String>): Boolean = this.filter { it !in elements }.fold { remove(it) }
 
-    override fun contains(element: String): Boolean = contains(root, element.catchInvalidInputString { return false })
+    override fun contains(element: String): Boolean = contains(root, element.check { return false })
 
     override fun containsAll(elements: Collection<String>): Boolean = elements.all { it in this }
 
@@ -78,12 +83,6 @@ class KRadixTree() : MutableSet<String> {
     private sealed class Node {
         //region Properties
         /**
-         * Gets or sets the number of words contained in the subtree of this [KRadixTree] where this node is the root.
-         * This node is included in this count.
-         */
-        var wordCount = 0
-
-        /**
          * Gets the number of direct descendants of this node.
          */
         val childCount: Int get() = children.size
@@ -92,15 +91,11 @@ class KRadixTree() : MutableSet<String> {
 
         //region Nested Members
         class Root : Node()
+
         class Child private constructor(
                 var string: String,
-                var endOfWord: Boolean,
-                wordCount: Int = 0
+                var endOfWord: Boolean
         ) : Node(), Comparable<Child> {
-
-            init {
-                this.wordCount = wordCount
-            }
 
             override fun equals(other: Any?): Boolean = when (super.equals(other)) {
                 false -> false
@@ -117,10 +112,10 @@ class KRadixTree() : MutableSet<String> {
             }
 
             companion object {
-                operator fun invoke(string: String, endOfWord: Boolean, descendantCount: Int = 0): Child? {
+                operator fun invoke(string: String, endOfWord: Boolean): Child? {
                     return when {
-                        string.isEmpty() || descendantCount < 0 -> null
-                        else -> Child(string, endOfWord, descendantCount)
+                        string.isEmpty() -> null
+                        else -> Child(string, endOfWord)
                     }
                 }
             }
@@ -134,7 +129,7 @@ class KRadixTree() : MutableSet<String> {
                 is Child -> "Child(string = $string, endOfWord: $endOfWord, "
             }
             val childrenString = children.joinToString(", ") { it.string }
-            return prefix + "wordCount = $wordCount, children = [$childrenString])"
+            return prefix + "children = [$childrenString])"
         }
 
         override fun equals(other: Any?): Boolean {
@@ -325,10 +320,8 @@ class KRadixTree() : MutableSet<String> {
     }
 
     companion object {
-        private inline fun String.normalize(lazyMessage: () -> String): String =
-                catchInvalidInputString { throw IllegalArgumentException(lazyMessage()) }
 
-        private inline fun String.catchInvalidInputString(onInvalidString: (String) -> Nothing): String {
+        private inline fun String.check(onInvalidString: (String) -> Nothing): String {
             return when {
                 this.containsWhitespace -> onInvalidString(this)
                 else -> this
@@ -341,7 +334,6 @@ class KRadixTree() : MutableSet<String> {
                     is Node.Root -> false
                     is Node.Child -> {
                         node.endOfWord = true
-                        node.wordCount++
                         true
                     }
                 }
@@ -351,7 +343,6 @@ class KRadixTree() : MutableSet<String> {
                 null -> throw IllegalStateException("Something terrible happened.")
                 else -> {
                     node.addChild(child)
-                    node.wordCount++
                     true
                 }
             }
@@ -362,7 +353,6 @@ class KRadixTree() : MutableSet<String> {
                     true -> false
                     false -> {
                         child.endOfWord = true
-                        node.wordCount++
                         true
                     }
                 }
@@ -376,23 +366,11 @@ class KRadixTree() : MutableSet<String> {
                 trimmedString.isEmpty() && diffResult.remainder.isEmpty() -> {
                     val wasEndOfWord = child.endOfWord
                     child.endOfWord = true
-
-                    when (wasEndOfWord) {
-                        true -> false
-                        false -> {
-                            node.wordCount++
-                            true
-                        }
-                    }
+                    !wasEndOfWord
                 }
-                child.string == diffResult.sharedPrefix -> {
-                    val successful = add(child, trimmedString)
-                    if (successful) node.wordCount++
-                    successful
-                }
+                child.string == diffResult.sharedPrefix -> add(child, trimmedString)
                 else -> {
-                    val wordCountDifference = split(child, diffResult, string)
-                    node.wordCount += wordCountDifference - 1
+                    split(child, diffResult, string)
                     true
                 }
             }
@@ -404,12 +382,7 @@ class KRadixTree() : MutableSet<String> {
                     is Node.Root -> false
                     is Node.Child -> {
                         node.endOfWord = true
-                        node.wordCount--
-
-                        if (ancestor != null) {
-                            node.cleanup()
-                        }
-
+                        if (ancestor != null) node.cleanup()
                         true
                     }
                 }
@@ -421,7 +394,6 @@ class KRadixTree() : MutableSet<String> {
                 return when (child.endOfWord) {
                     true -> {
                         child.endOfWord = false
-                        node.wordCount--
                         child.cleanup()
                         true
                     }
@@ -440,20 +412,9 @@ class KRadixTree() : MutableSet<String> {
                 trimmedString.isEmpty() && diffResult.remainder.isEmpty() -> {
                     val wasEndOfWord = child.endOfWord
                     child.endOfWord = false
-
-                    when (wasEndOfWord) {
-                        true -> {
-                            node.wordCount--
-                            true
-                        }
-                        false -> false
-                    }
+                    wasEndOfWord
                 }
-                else -> {
-                    val successful = remove(node, child, trimmedString)
-                    if (successful) node.wordCount--
-                    successful
-                }
+                else -> remove(node, child, trimmedString)
             }
 
             child.cleanup()
@@ -485,15 +446,13 @@ class KRadixTree() : MutableSet<String> {
             }
         }
 
-        private fun split(child: Node.Child, diffResult: DiffResult.Shared, string: String): Int {
+        private fun split(child: Node.Child, diffResult: DiffResult.Shared, string: String) {
             val trimmedString = diffResult.removeSharedPrefix(string)
             check(trimmedString != null)
 
             val previousEndOfWord = child.endOfWord
-            val previousWordCount = child.wordCount
-
-            val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord, child.wordCount)
-            val newChild2 = Node.Child(trimmedString, true, 1)
+            val newChild1 = Node.Child(diffResult.remainder, previousEndOfWord)
+            val newChild2 = Node.Child(trimmedString, true)
 
             if (newChild1 != null) {
                 child.moveChildrenTo(newChild1)
@@ -501,21 +460,15 @@ class KRadixTree() : MutableSet<String> {
 
             child.string = diffResult.sharedPrefix
             child.endOfWord = newChild2 == null
-            child.wordCount = if (child.endOfWord) 1 else 0
             child.clearChildren()
 
             if (newChild1 != null) {
                 child.addChild(newChild1)
-                child.wordCount += newChild1.wordCount + 1
             }
 
             if (newChild2 != null) {
                 child.addChild(newChild2)
-                child.wordCount++
-
             }
-
-            return child.wordCount - previousWordCount
         }
     }
 }
