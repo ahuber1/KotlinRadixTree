@@ -234,6 +234,7 @@ class KRadixTree() : MutableSet<String> {
 
         init {
             invalidate()
+            ancestors.push(NodeWrapper(tree.root, null))
         }
 
         override fun hasNext(): Boolean {
@@ -251,14 +252,8 @@ class KRadixTree() : MutableSet<String> {
         }
 
         override fun next(): String {
-            val millis = measureTimeMillis {
-                if (!hasNext()) {
-                    throw NoSuchElementException()
-                }
-            }
-
-            if (millis > 10) {
-                println("Caching returned word: %,d".format(millis))
+            if (!hasNext()) {
+                throw NoSuchElementException()
             }
 
             val word = next!!.word
@@ -277,23 +272,35 @@ class KRadixTree() : MutableSet<String> {
         }
 
         private fun findNext(): NodeWrapper? {
-            if (ancestors.isEmpty()) {
-                return null
+            while (ancestors.isNotEmpty()) {
+                val child = ancestors.peek()?.nextChild()
+
+                if (child == null) {
+                    ancestors.pop()
+                    continue
+                }
+
+                ancestors.push(child)
+
+                if (child.node is Node.Child && child.node.endOfWord && child.word !in returnedWords && child.word in tree) {
+                    return child
+                }
             }
 
-            var current: NodeWrapper? = null
-
-            do {
-
-            } while (true)
+            return null
         }
 
         private fun invalidate() {
-            ancestors.clear()
-            ancestors.push(NodeWrapper(tree.root, null))
+            ancestors.forEach { it.resetIndex() }
             cachedVersion = tree.version
             nextRetrieved = false
             next = null
+
+//            ancestors.clear()
+//            ancestors.push(NodeWrapper(tree.root, null))
+//            cachedVersion = tree.version
+//            nextRetrieved = false
+//            next = null
         }
     }
 
@@ -310,6 +317,10 @@ class KRadixTree() : MutableSet<String> {
         fun nextChild(): NodeWrapper? = when (val next = node.childAt(childIndex++)) {
             null -> null
             else -> NodeWrapper(next, this)
+        }
+
+        fun resetIndex() {
+            childIndex = 0
         }
     }
 

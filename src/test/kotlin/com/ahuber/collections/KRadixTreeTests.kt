@@ -25,7 +25,7 @@ class KRadixTreeTests {
 
     @Test
     fun `test iterator`() {
-        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10)) {
+        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(60)) {
             for (direction in Direction.values()) {
                 val words = getWords(direction).toList()
                 val radixTree = KRadixTree(words)
@@ -36,10 +36,9 @@ class KRadixTreeTests {
 
     @Test
     fun `test iterator with remove`() {
-        Assertions.assertTimeoutPreemptively(Duration.ofSeconds(10)) {
-            val words = getWords().toList()
-            val characterSet = words.asSequence()
-                    .groupBy { it.first() }
+        Assertions.assertTimeoutPreemptively(Duration.ofMinutes(1)) {
+            val words = getWords()
+            val characterSet = words.groupBy { it.first() }
                     .map { it.key to it.value.size }
                     .asSequence()
                     .sortedByDescending { it.second }
@@ -51,7 +50,7 @@ class KRadixTreeTests {
 
             val controlIterator = controlSet.iterator()
             val testIterator = testSet.iterator()
-            var index = -1
+            var index = -1L
             var removeFromControlCount = 0
             var removeFromTestCount = 0
 
@@ -82,6 +81,9 @@ class KRadixTreeTests {
                 }
             }
 
+            assertTrue(controlSet.none { it.first() in characterSet })
+            assertTrue(testSet.none { it.first() in characterSet })
+            assertEquals(removeFromControlCount, removeFromTestCount)
             assertEquals(controlSet.size, testSet.size)
             testSet.assertContainsWords(controlSet)
         }
