@@ -5,20 +5,47 @@ import java.util.*
 import kotlin.NoSuchElementException
 import kotlin.collections.HashMap
 
-class KPrefixTree : MutableSet<String> {
+class KPrefixTree : MutableSet<String>, WordSearchTree {
     override val size
         @Synchronized get() = root.wordCount
 
     private val root = Node.Root
 
     @Synchronized
-    override fun add(element: String) = root.add(element.toLowerCase())
+    override fun add(element: String) = root.add(element.check { return false })
 
     @Synchronized
-    override fun remove(element: String) = root.remove(element.toLowerCase())
+    override fun remove(element: String) = root.remove(element.check { return false })
 
     @Synchronized
-    override operator fun contains(element: String) = root.contains(element.toLowerCase())
+    override operator fun contains(element: String) = root.contains(element.check { return false })
+
+    @Synchronized
+    override fun search(string: String): WordSearchResult {
+        string.check { return WordSearchResult.NoMatch(string) }
+        var node: Node = root
+        var index = 0
+
+        loop@ for (c in string) {
+            when (val child = node[c]) {
+                is Option.None -> break@loop
+                is Option.Some -> node = child.value
+            }
+
+            index++
+        }
+
+        return when (index) {
+            0 -> WordSearchResult.NoMatch(string)
+            else -> {
+                val list = Node.Companion.NodeIterator(this, node).asSequence().toList()
+                when {
+                    index == string.lastIndex && node.endOfWord-> WordSearchResult.ExactMatch(string, list)
+                    else -> WordSearchResult.PartialMatch(string, list)
+                }
+            }
+        }
+    }
 
     @Synchronized
     override fun containsAll(elements: Collection<String>) = elements.all { it in this }
@@ -27,7 +54,7 @@ class KPrefixTree : MutableSet<String> {
     override fun isEmpty(): Boolean = size == 0
 
     override fun iterator(): MutableIterator<String> =
-            Node.Companion.NodeIterator(this)
+            Node.Companion.NodeIterator(this, root)
 
     @Synchronized
     override fun addAll(elements: Collection<String>) =
@@ -50,11 +77,11 @@ class KPrefixTree : MutableSet<String> {
         var wordCount = 0
             private set
 
-        private val children = HashMap<Char?, Child>()
+        private val children = HashMap<Option<Char>, Child>()
 
-        object Root: Node()
+        object Root : Node()
 
-        data class Child(val character: Char? = null): Node(), Comparable<Child> {
+        data class Child(val character: Char? = null) : Node(), Comparable<Child> {
             override fun compareTo(other: Child): Int {
                 return when {
                     this.character != null && other.character != null -> this.character.compareTo(other.character)
@@ -65,30 +92,29 @@ class KPrefixTree : MutableSet<String> {
             }
         }
 
+        val endOfWord get() = Option.None() in this.children
+
         fun clear() {
             children.clear()
             wordCount = 0
         }
 
-        operator fun contains(string: String) : Boolean = when {
-            string.containsWhitespace -> false
-            string.isEmpty() -> null in this.children
-            else -> when (val child = this.children.getOrNone(string.first())) {
+        operator fun get(character: Char) = this.children[Option.Some(character)].asOption()
+
+        operator fun contains(string: String): Boolean = when {
+            string.isEmpty() -> Option.None() in this.children
+            else -> when (val child = this.children.getOrNone(string.first().some())) {
                 is Option.None -> false
                 is Option.Some -> child.value.contains(string.substring(1))
             }
         }
 
-        fun add(string: String) : Boolean {
-            if (string.containsWhitespace) {
-                throw invalidStringException
-            }
-
+        fun add(string: String): Boolean {
             if (string.isEmpty()) {
                 return when {
-                    null in this.children -> false
+                    Option.None() in this.children -> false
                     else -> {
-                        this.children[null] = Child()
+                        this.children[Option.None()] = Child()
                         true
                     }
                 }
@@ -96,11 +122,11 @@ class KPrefixTree : MutableSet<String> {
 
             val firstChar = string.first()
 
-            val child = when (val option = this.children.getOrNone(firstChar)) {
+            val child = when (val option = this.children.getOrNone(firstChar.some())) {
                 is Option.Some -> option.value
                 else -> {
                     val child = Child(firstChar)
-                    this.children[firstChar] = child
+                    this.children[firstChar.some()] = child
                     child
                 }
             }
@@ -113,16 +139,12 @@ class KPrefixTree : MutableSet<String> {
             return true
         }
 
-        fun remove(string: String) : Boolean {
-            if (string.containsWhitespace) {
-                throw invalidStringException
-            }
-
+        fun remove(string: String): Boolean {
             if (string.isEmpty()) {
-                return this.children.remove(null) != null
+                return this.children.remove(Option.None()) != null
             }
 
-            val child = this.children.getOrNone(string.first()).nullIfNone() ?: return false
+            val child = this.children.getOrNone(string.first().some()).nullIfNone() ?: return false
 
             if (!child.remove(string.substring(1))) {
                 return false
@@ -141,18 +163,13 @@ class KPrefixTree : MutableSet<String> {
         }
 
         companion object {
-
-            private val invalidStringException: IllegalArgumentException
-                    by lazy { IllegalArgumentException("Strings with whitespace characters are not permitted") }
-
-            class NodeIterator(private val tree: KPrefixTree) : MutableIterator<String> {
+            class NodeIterator(private val tree: KPrefixTree, private val root: Node) : MutableIterator<String> {
                 data class NodeWrapper<T : Node>(val node: T) {
                     val children: LinkedList<NodeWrapper<Child>> by lazy {
-                        node.children.values.asSequence().sortedBy { it }.map {
-                            NodeWrapper(
-                                    it)
-                        }.toCollection(
-                                LinkedList())
+                        node.children.values.asSequence()
+                                .sortedBy { it }
+                                .map { NodeWrapper(it) }
+                                .toCollection(LinkedList())
                     }
                 }
 
@@ -187,14 +204,12 @@ class KPrefixTree : MutableSet<String> {
 
                 private fun reset() {
                     characters.clear()
-                    node =
-                            NodeWrapper(
-                                    tree.root)
+                    node = NodeWrapper(root)
                     ancestors.clear()
                     nextString = null
                 }
 
-                private fun findNextString() : String? {
+                private fun findNextString(): String? {
                     while (true) {
                         val node = this.node ?: return null
                         val child = node.children.removeFirstOrNone().nullIfNone()
@@ -221,6 +236,14 @@ class KPrefixTree : MutableSet<String> {
                     }
                 }
             }
+        }
+    }
+
+    companion object {
+
+        private inline fun String.check(onInvalidString: (String) -> Nothing) = when (this.containsWhitespace) {
+            true -> onInvalidString(this)
+            false -> this
         }
     }
 }

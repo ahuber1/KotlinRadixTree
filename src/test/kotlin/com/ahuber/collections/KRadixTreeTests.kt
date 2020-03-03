@@ -4,21 +4,12 @@ import com.ahuber.test.utils.getResourceAsFile
 import com.ahuber.utils.*
 import org.junit.jupiter.api.Assertions
 import java.time.Duration
-import java.util.*
-import kotlin.NoSuchElementException
-import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
-import kotlin.collections.HashSet
 import kotlin.test.*
 
 typealias TestWithWordsBlock = (index: Int, word: String, set: MutableSet<String>) -> Unit
 
 class KRadixTreeTests {
     enum class Direction { LR, RL }
-
-    data class SizedSequence<T>(val sequence: Sequence<T>, val size: Int): Sequence<T> {
-        override fun iterator(): Iterator<T> = sequence.iterator()
-    }
 
     @Test
     fun `test with words`() = Direction.values().forEach { addThenRemove(it) }
@@ -89,10 +80,20 @@ class KRadixTreeTests {
         }
     }
 
-    private val Direction.otherDirection get() = when (this) {
-        Direction.LR -> Direction.RL
-        Direction.RL -> Direction.LR
+    @Test
+    fun `test search`() {
+        val tree = KRadixTree("apple", "application", "apply")
+        val result = tree.search("apple")
+        assertTrue(result is WordSearchResult.ExactMatch)
+        assertEquals("apple", result.searchString)
+        assertTrue(result.longerWords.isEmpty())
     }
+
+    private val Direction.otherDirection
+        get() = when (this) {
+            Direction.LR -> Direction.RL
+            Direction.RL -> Direction.LR
+        }
 
     private fun addThenRemove(initialDirection: Direction) {
         var words = getWords(initialDirection)
@@ -108,17 +109,13 @@ class KRadixTreeTests {
         val initialSize = words.size
 
         iterateThroughWordsAndSets(words, sets) { index, word, set ->
-            try {
-                assertTrue(set.remove(word))
-                assertFalse(word in set)
-                assertEquals(initialSize - index - 1, set.size)
-            } catch (throwable: Throwable) {
-                throw throwable
-            }
+            assertTrue(set.remove(word))
+            assertFalse(word in set)
+            assertEquals(initialSize - index - 1, set.size)
         }
     }
 
-    private inline fun iterateThroughWordsAndSets(words: SizedSequence<String>,
+    private inline fun iterateThroughWordsAndSets(words: Array<String>,
             sets: Array<MutableSet<String>>, block: TestWithWordsBlock) {
         for ((index, word) in words.withIndex()) {
             for (set in sets) {
@@ -138,38 +135,36 @@ class KRadixTreeTests {
                 .distinct()
     }
 
-    private fun getWords(direction: Direction): SizedSequence<String> {
-        var words: MutableList<String?> = getWords().toMutableList()
-
-        val sequence = sequence<String> {
-            while (true) {
-                val indices = words.generateIndices(direction)
-
-                if (indices.isEmpty()) {
-                    break
-                }
-
-                for (index in indices) {
-                    val word = words[index]
-                    words[index] = null
-
-                    if (word != null) {
-                        yield(word)
-                    }
-                }
-
-                words = words.filterNotNullTo(ArrayList())
-            }
-        }
-
-        return SizedSequence(sequence, words.size)
+    private fun getWords(direction: Direction): Array<String> {
+        val words = getWords().toList().toTypedArray()
+        val indices =words.generateIndices(direction)
+        return Array(indices.size) { words[it] }
     }
 
-    private fun <T> List<T>.generateIndices(direction: Direction): List<Int> {
-        fun generateIndices(range: IntRange, indices: MutableMap<Int, SortedSet<Int>>, level: Int, direction: Direction) {
-            val set = indices.compute(level) { _, value -> value ?: TreeSet() }
-            check(set != null)
-            set.add(range.middle)
+    /**
+     * Generates an [IntArray] of indices pointing to elements in the original array. This method can be used to shuffle
+     * the array, but does it in a manner that is consistent each time the tests are executed due to no random number
+     * generator being used.
+     *
+     * The indices are added to the array by partitioning the array into two halves and adding the middle index of each
+     * half to the index list. The half whose middle index is added to the index list first is determined by the value
+     * of the [direction] parameter.
+     *
+     * - If [Direction.LR], the middle index of the *left* half is added before the middle index of the *right* half.
+     * - If [Direction.RL]. the middle index of the *right* half is added before the middle index of the *left* half.
+     *
+     * This process is repeated recursively until all indices are added. Note that the returned [IntArray] *does not*
+     * contain repeated indices.
+     */
+    private fun <T> Array<T>.generateIndices(direction: Direction): IntArray {
+        fun generateIndices(range: IntRange, indices: MutableMap<Int, MutableMap<Int, Int>>, level: Int,
+                direction: Direction) {
+            val list = indices.compute(level) { _, value -> value ?: mutableMapOf() }
+            check(list != null)
+
+            if (range.middle !in list) {
+                list[range.middle] = list.size
+            }
 
             val leftRange = range.halveLeft()
             val rightRange = range.halveRight()
@@ -184,40 +179,55 @@ class KRadixTreeTests {
         }
 
         return when (this.isEmpty()) {
-            true -> emptyList()
+            true -> IntArray(0)
             false -> {
-                val map = HashMap<Int, SortedSet<Int>>()
+                val map = HashMap<Int, MutableMap<Int, Int>>()
                 generateIndices(this.indices, map, 0, direction)
-                map.asSequence().sortedBy { it.key }.flatMap { it.value.asSequence() }.distinct().toList()
+                map.asSequence()
+                        // Map each entry to a Pair<Int, Sequence<Int>>
+                        //      - The first value is the key in the entry
+                        //      - The second value is the corresponding value where the keys
+                        //        (the indices) are ordered by their value (the order in which the index was
+                        //        added to the map)
+                        .map { entry ->
+                            entry.key to entry.value.asSequence().sortedBy { it.value }.map { it.key }
+                        }
+                        // Sort each entry by their level
+                        .sortedBy { it.first }
+                        // Sort each
+                        .flatMap { it.second }
+                        .distinct()
+                        .toList()
+                        .toIntArray()
             }
         }
     }
+}
 
-    private fun KRadixTree.assertContainsWords(words: Iterable<String>) {
-        val distinctWords = when (words) {
-            is Set<String> -> words.asSequence()
-            else -> words.asSequence().distinct()
-        }
-        val wordMap = distinctWords.map { it to false }.toMap(HashMap())
-        assertEquals(wordMap.size, size)
+private fun KRadixTree.assertContainsWords(words: Iterable<String>) {
+    val distinctWords = when (words) {
+        is Set<String> -> words.asSequence()
+        else -> words.asSequence().distinct()
+    }
+    val wordMap = distinctWords.map { it to false }.toMap(HashMap())
+    assertEquals(wordMap.size, size)
 
-        for (word in this) {
-            assertTrue(word in wordMap,
-                    "The word ${word.wrapInQuotes()} was not in the original word list.")
-            wordMap[word] = true
-        }
+    for (word in this) {
+        assertTrue(word in wordMap,
+                "The word ${word.wrapInQuotes()} was not in the original word list.")
+        wordMap[word] = true
+    }
 
-        val wordLimit = 20
-        val missingWords = wordMap.entries.asSequence().filter { !it.value }.map { it.key }.toList()
-        val wordsString = missingWords.withIndex().joinToString(
-                separator = "\n",
-                limit = wordLimit,
-                truncated = "And %,d more".format(missingWords.size - wordLimit)) { "\t[${it.index}] ${it.value}" }
+    val wordLimit = 20
+    val missingWords = wordMap.entries.asSequence().filter { !it.value }.map { it.key }.toList()
+    val wordsString = missingWords.withIndex().joinToString(
+            separator = "\n",
+            limit = wordLimit,
+            truncated = "And %,d more".format(missingWords.size - wordLimit)) { "\t[${it.index}] ${it.value}" }
 
-        if (wordsString.isNotEmpty()) {
-            val errorMessage = "Not all words that are in the radix tree were returned by the iterator.\n" +
-                    "The missing words are:\n$wordsString"
-            fail(errorMessage)
-        }
+    if (wordsString.isNotEmpty()) {
+        val errorMessage = "Not all words that are in the radix tree were returned by the iterator.\n" +
+                "The missing words are:\n$wordsString"
+        fail(errorMessage)
     }
 }

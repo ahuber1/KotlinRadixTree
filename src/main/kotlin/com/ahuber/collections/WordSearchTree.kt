@@ -1,5 +1,5 @@
 package com.ahuber.collections
 
-interface StringSearchTree {
+interface WordSearchTree {
     fun search(string: String): WordSearchResult
 }
