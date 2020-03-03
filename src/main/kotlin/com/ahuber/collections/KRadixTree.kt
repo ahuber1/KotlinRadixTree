@@ -103,8 +103,11 @@ class KRadixTree() : MutableSet<String>, WordSearchTree {
                 stack.pop()
                 break
             } else if (diffResult is DiffResult.Identical || diffResult is DiffResult.Shared) {
-                stack.push(child to (diffResult as? DiffResult.Shared)?.remainder)
-
+                val remainder = when (diffResult) {
+                    is DiffResult.Shared -> str?.substring(diffResult.sharedPrefix.length)
+                    else -> null
+                }
+                stack.push(child to remainder)
                 if (diffResult is DiffResult.Identical) {
                     break
                 }

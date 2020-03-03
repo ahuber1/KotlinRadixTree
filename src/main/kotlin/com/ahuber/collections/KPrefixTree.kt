@@ -2,14 +2,33 @@ package com.ahuber.collections
 
 import com.ahuber.utils.*
 import java.util.*
+import kotlin.Comparator
 import kotlin.NoSuchElementException
 import kotlin.collections.HashMap
 
-class KPrefixTree : MutableSet<String>, WordSearchTree {
+class KPrefixTree() : MutableSet<String>, WordSearchTree {
+
+    constructor(elements: Iterable<String>) : this() {
+        addAll(elements)
+    }
+
+    constructor(elements: Sequence<String>) : this() {
+        addAll(elements)
+    }
+
+    constructor(vararg elements: String) : this() {
+        addAll(elements)
+    }
+
     override val size
         @Synchronized get() = root.wordCount
 
     private val root = Node.Root
+    private lateinit var version: UUID
+
+    init {
+        newVersion()
+    }
 
     @Synchronized
     override fun add(element: String) = root.add(element.check { return false })
@@ -73,6 +92,11 @@ class KPrefixTree : MutableSet<String>, WordSearchTree {
     override fun retainAll(elements: Collection<String>) =
             removeAll(this.filter { it !in elements }.toList())
 
+    @Synchronized
+    private fun newVersion() {
+        version = UUID.randomUUID()
+    }
+
     private sealed class Node {
         var wordCount = 0
             private set
@@ -108,6 +132,16 @@ class KPrefixTree : MutableSet<String>, WordSearchTree {
                 is Option.Some -> child.value.contains(string.substring(1))
             }
         }
+
+        fun childIterator(): Iterator<Child> =
+                children.keys.sortedWith(Comparator { o1, o2 ->
+                    when {
+                        o1 is Option.None && o2 is Option.None -> 0
+                        o1 is Option.Some && o2 is Option.Some -> o1.value.compareTo(o2.value)
+                        o1 is Option.Some && o2 is Option.None -> 1
+                        else -> -1
+                    }
+                }).map { children[it]!! }.iterator()
 
         fun add(string: String): Boolean {
             if (string.isEmpty()) {
@@ -161,86 +195,65 @@ class KPrefixTree : MutableSet<String>, WordSearchTree {
 
             return true
         }
+    }
 
-        companion object {
-            class NodeIterator(private val tree: KPrefixTree, private val root: Node) : MutableIterator<String> {
-                data class NodeWrapper<T : Node>(val node: T) {
-                    val children: LinkedList<NodeWrapper<Child>> by lazy {
-                        node.children.values.asSequence()
-                                .sortedBy { it }
-                                .map { NodeWrapper(it) }
-                                .toCollection(LinkedList())
-                    }
-                }
+    private class NodeIterator(private val tree: KPrefixTree, private val root: Node) : MutableIterator<String> {
+        private val ancestors = LinkedList<NodeWrapper<*>>()
+        private lateinit var cachedVersion: UUID
 
-                private val characters = LinkedList<Char>()
-                private val returnedStrings = Stack<String>()
-                private val ancestors = Stack<NodeWrapper<*>>()
-                private var node: NodeWrapper<*>? = null
-                private var nextString: String? = null
+        init {
+            ancestors.push(NodeWrapper(root))
+            invalidate()
+        }
 
-                init {
-                    reset()
-                }
-
-                override fun hasNext(): Boolean {
-                    if (nextString == null) {
-                        nextString = findNextString()
-                    }
-
-                    if (nextString != null && nextString !in returnedStrings) {
-                        returnedStrings.push(nextString)
-                    }
-
-                    return nextString != null
-                }
-
-                override fun next(): String = nextString ?: throw NoSuchElementException()
-
-                override fun remove() {
-                    tree.remove(next())
-                    reset()
-                }
-
-                private fun reset() {
-                    characters.clear()
-                    node = NodeWrapper(root)
-                    ancestors.clear()
-                    nextString = null
-                }
-
-                private fun findNextString(): String? {
-                    while (true) {
-                        val node = this.node ?: return null
-                        val child = node.children.removeFirstOrNone().nullIfNone()
-
-                        if (child == null) {
-                            this.node = ancestors.popOrNone().nullIfNone()
-
-                            // using removeFirstOrNone makes the operation removeFirst()
-                            // method not throw an exception if there are no elements in the linked list
-                            this.characters.removeFirstOrNone()
-                            continue
-                        }
-
-                        val character = child.node.character
-
-                        if (character == null) {
-                            val string = String(characters.toCharArray())
-                            return if (string in returnedStrings) continue else string
-                        }
-
-                        ancestors.push(node)
-                        this.node = child
-                        characters.addLast(character)
-                    }
-                }
+        override fun hasNext(): Boolean {
+            if (tree.version != cachedVersion) {
+                invalidate()
             }
+
+
+        }
+
+        override fun next(): String {
+            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        }
+
+        override fun remove() {
+            TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+        }
+
+        private fun invalidate() {
+            ancestors.peek()?.resetIterator()
+            cachedVersion = tree.version
+        }
+    }
+
+    private data class NodeWrapper<T : Node>(val node: T) {
+        private lateinit var iterator: Iterator<Map.Entry<Option<Char>, Node.Child>>
+
+        init {
+            resetIterator()
+        }
+
+        val next: NodeWrapper<Node.Child>?
+            get() {
+                while (iterator.hasNext()) {
+                    val (key, value) = iterator.next()
+
+                    if (key is Option.Some) {
+                        return NodeWrapper(value)
+                    }
+                }
+
+                return null
+            }
+
+        fun resetIterator() {
+            iterator = node.childIterator()
         }
     }
 
     companion object {
-
         private inline fun String.check(onInvalidString: (String) -> Nothing) = when (this.containsWhitespace) {
             true -> onInvalidString(this)
             false -> this
