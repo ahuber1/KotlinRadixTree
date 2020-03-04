@@ -4,7 +4,6 @@ import com.ahuber.test.utils.DataUtils
 import com.ahuber.test.utils.Direction
 import com.ahuber.test.utils.assertContainsWords
 import com.ahuber.test.utils.oppositeDirection
-import jdk.nashorn.internal.ir.annotations.Ignore
 import org.junit.jupiter.api.Assertions
 import java.time.Duration
 import kotlin.test.Test

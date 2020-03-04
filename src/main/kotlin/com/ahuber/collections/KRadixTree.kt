@@ -281,7 +281,6 @@ class KRadixTree() : MutableSet<String>, WordSearchTree {
 
     private class KRadixTreeIterator(private val tree: KRadixTree, root: Node) : MutableIterator<String> {
         private lateinit var cachedVersion: UUID
-        private val invalidated: Boolean get() = tree.version != cachedVersion
         private val ancestors = Stack<NodeWrapper>()
         private val returnedWords = HashSet<String>()
         private var next: NodeWrapper? = null
@@ -294,7 +293,7 @@ class KRadixTree() : MutableSet<String>, WordSearchTree {
 
         override fun hasNext(): Boolean {
             synchronized(tree) {
-                if (invalidated) {
+                if (tree.version != cachedVersion) {
                     invalidate()
                 }
 
