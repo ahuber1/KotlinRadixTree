@@ -367,9 +367,12 @@ class KRadixTree() : MutableSet<String>, WordSearchTree {
                 word = ancestorWord + currentWord
             }
 
-            fun nextChild(): NodeWrapper? = when (val next = node.childAt(childIndex++)) {
+            fun nextChild(): NodeWrapper? = when (val next = node.childAt(childIndex)) {
                 null -> null
-                else -> NodeWrapper(next, this)
+                else -> {
+                    childIndex++
+                    NodeWrapper(next, this)
+                }
             }
 
             fun resetIndex() {
